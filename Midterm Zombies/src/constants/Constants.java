@@ -44,10 +44,10 @@ public class Constants {
          * city, airport, port, empty
          */
         public static final Map<TILE_INFRASTRUCTURE, Integer> INFRASTRUCTURE_SPAWN_RATES = Map.of(
-            TILE_INFRASTRUCTURE.PORT, 1,
-            TILE_INFRASTRUCTURE.AIRPORT, 1,
+            TILE_INFRASTRUCTURE.PORT, 10,
+            TILE_INFRASTRUCTURE.AIRPORT, 10,
             TILE_INFRASTRUCTURE.CITY, 5,
-            TILE_INFRASTRUCTURE.EMPTY, 100);
+            TILE_INFRASTRUCTURE.EMPTY, 1000);
             
         
 

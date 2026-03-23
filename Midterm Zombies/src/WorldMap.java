@@ -64,6 +64,8 @@ public class WorldMap {
                 infrastructureMap[x][y] = infrastructure;
             }
         }
+
+        startInfection();
                 
     }
 
@@ -109,6 +111,16 @@ public class WorldMap {
      */
     public Tile[][] getTiles() {
         return mapTiles;
+    }
+
+    private void startInfection(){
+        while (true) {
+            int[] coord = randomCoordinate();
+            if (mapTiles[coord[0]][coord[1]].getBiome() != MapConstants.TILE_BIOMES.WATER){
+                mapTiles[coord[0]][coord[1]].addInfectedPeople(50);
+                break;
+            }
+        }
     }
     private MapConstants.TILE_INFRASTRUCTURE rollInfrastructure(Tile tile) {
         Map<MapConstants.TILE_INFRASTRUCTURE, Boolean> isValid = new HashMap<MapConstants.TILE_INFRASTRUCTURE, Boolean>(Map.of(
@@ -202,6 +214,7 @@ public class WorldMap {
     }
 
     public void periodicUpdate() {
+        System.out.println("periodic");
         double startTime = System.currentTimeMillis();
         ArrayList<ArrayList<Map<MapConstants.TILE_INHABITANTS, Double>>> deltaInhabitants = new ArrayList<ArrayList<Map<MapConstants.TILE_INHABITANTS, Double>>>(); //normal array doesn't work with maps, so this mess will have to do instead
         for (int x = 0; x < mapTiles.length; x++) { 
