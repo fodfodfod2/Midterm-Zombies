@@ -54,14 +54,9 @@ public class GUI extends Application {
 
         executor = Executors.newSingleThreadScheduledExecutor();
         executor.scheduleAtFixedRate(() -> {
-
-            // --- Off UI thread: pure logic ---
             App.periodic();;
-
-            // --- On UI thread: scene graph changes ---
             Platform.runLater(() -> updateMap());
-
-        }, 0, 1000, TimeUnit.MILLISECONDS);
+        }, 0, 10, TimeUnit.MILLISECONDS);
     }
 
     private static void buildMap(Stage stage) throws Exception{
@@ -113,11 +108,12 @@ public class GUI extends Application {
     }
 
     public static void updateMap(){
+        double startTime = System.currentTimeMillis();
         Tile[][] tileMap = App.worldMap.getTiles();
-        Group base = new Group();
-        Scene scene = new Scene(base, MapConstants.MAP_WIDTH * MapConstants.MAP_SCALE,
-                MapConstants.MAP_HEIGHT * MapConstants.MAP_SCALE);
-        scene.setFill(Color.RED);
+        // Group base = new Group();
+        // Scene scene = new Scene(base, MapConstants.MAP_WIDTH * MapConstants.MAP_SCALE,
+        //         MapConstants.MAP_HEIGHT * MapConstants.MAP_SCALE);
+        // scene.setFill(Color.RED);
         // for (int x = 0; x < tileMap.length; x++) {
         //     for (int y = 0; y < tileMap[x].length; y++) {
         //         Rectangle pixel = biomePixelMap[x][y];
@@ -146,12 +142,14 @@ public class GUI extends Application {
                 b = Math.clamp(b, 0, 1);
                 a = Math.max(Math.max(r, g),b);
 
-                pixel.setFill(new Color(r, g, b, a));
-                base.getChildren().add(pixel);
-                inhabitantPixelMap[x][y] = pixel;
+                // pixel.setFill(new Color(r, g, b, a));
+                pixel.setFill(1,1,1,1);
+                // base.getChildren().add(pixel);
+                // inhabitantPixelMap[x][y] = pixel;
             }
         }
-        mainStage.setScene(scene);
-        App.periodic();
+        System.out.println("GUI update took "+(System.currentTimeMillis() - startTime)+"ms");
+        // mainStage.setScene(scene);
+        
     }
 }

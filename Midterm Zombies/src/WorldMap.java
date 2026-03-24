@@ -215,8 +215,8 @@ public class WorldMap {
 
     private double[] calculateZombieSpreadWeghting(int x, int y){
         double[] weighting = new double[2];
-        for (int xCord = 0; xCord < MapConstants.MAP_WIDTH; xCord++){
-            for (int yCord = 0; yCord < MapConstants.MAP_HEIGHT; yCord++){
+        for (int xCord = Math.max(0, x-5); xCord < Math.min(MapConstants.MAP_WIDTH,x+5); xCord++){
+            for (int yCord = Math.max(0, y-5); yCord < Math.min(MapConstants.MAP_HEIGHT,y+5); yCord++){
                 double dx = Math.max(xCord-x,.5);
                 double dy = Math.max(yCord-y,.5);
                 double pop = mapTiles[xCord][yCord].getInhabitants().get(MapConstants.TILE_INHABITANTS.HUMAN);
@@ -234,6 +234,7 @@ public class WorldMap {
         System.out.println("periodic");
         double startTime = System.currentTimeMillis();
         ArrayList<ArrayList<Map<MapConstants.TILE_INHABITANTS, Double>>> deltaInhabitants = new ArrayList<ArrayList<Map<MapConstants.TILE_INHABITANTS, Double>>>(); //normal array doesn't work with maps, so this mess will have to do instead
+        double deltaStartTime = System.currentTimeMillis();
         for (int x = 0; x < mapTiles.length; x++) { 
             ArrayList<Map<MapConstants.TILE_INHABITANTS, Double>> column = new ArrayList<Map<MapConstants.TILE_INHABITANTS, Double>>(); //compute as tiles, then combine those into colums, then into one large deltaInhabitants array
             double increment = SpreadConstants.PERIODIC_INCREMENT; //initialize this at the start, then when we iterate through the tiles the first time, check if it needs to be reduced to prevent negative populations
@@ -276,7 +277,9 @@ public class WorldMap {
             }
             deltaInhabitants.add(column);
         }
+        System.out.println("delta updates took "+(System.currentTimeMillis()-deltaStartTime)+"ms");
         
+        double applyStartTime = System.currentTimeMillis();
         for (int x = 0; x < mapTiles.length; x++) { //apply the delta inhabitants to the map tiles
             for (int y = 0; y < mapTiles[x].length; y++) {
                
@@ -285,12 +288,12 @@ public class WorldMap {
                 mapTiles[x][y].getInhabitants().put(MapConstants.TILE_INHABITANTS.ZOMBIE, mapTiles[x][y].getInhabitants().get(MapConstants.TILE_INHABITANTS.ZOMBIE) + deltaInhabitantTile.get(MapConstants.TILE_INHABITANTS.ZOMBIE));
             }
         }
-
+        System.out.println("apply updates took "+(System.currentTimeMillis()-applyStartTime)+"ms");
+        double moveStartTime = System.currentTimeMillis();
         //have the zombie population move
         for (int x = 0; x < mapTiles.length; x++) {
             for (int y = 0; y < mapTiles[x].length; y++) {
                 double[] weight = calculateZombieSpreadWeghting(x, y);
-                System.out.println(weight);
                 double pop = mapTiles[x][y].getInhabitants().get(MapConstants.TILE_INHABITANTS.ZOMBIE);
 
                 double dCorner = pop * Math.pow((weight[0]*weight[1])/(weight[0]+weight[1]),1.25);
@@ -305,6 +308,8 @@ public class WorldMap {
 
             }
         }
+        System.out.println("movement updates took "+(System.currentTimeMillis()-moveStartTime)+"ms");
+
 
         if (GeneralConstants.DEBUG) {
             for (int x = 0; x < mapTiles.length; x++) {
