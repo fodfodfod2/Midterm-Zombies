@@ -213,6 +213,23 @@ public class WorldMap {
         return newInfected;
     }
 
+    private double[] calculateZombieSpreadWeghting(int x, int y){
+        double[] weighting = new double[2];
+        for (int xCord = 0; xCord < MapConstants.MAP_WIDTH; xCord++){
+            for (int yCord = 0; yCord < MapConstants.MAP_HEIGHT; yCord++){
+                double dx = Math.max(xCord-x,.5);
+                double dy = Math.max(yCord-y,.5);
+                double pop = mapTiles[xCord][yCord].getInhabitants().get(MapConstants.TILE_INHABITANTS.HUMAN);
+                weighting[0] += pop/dx;
+                weighting[1] += pop/dy;
+            }
+        }
+        // make both proportions
+        weighting[0] = weighting[0] / (weighting[0]+weighting[1]);
+        weighting[1] = weighting[1] / (weighting[0]+weighting[1]);
+        return weighting;
+    }
+
     public void periodicUpdate() {
         System.out.println("periodic");
         double startTime = System.currentTimeMillis();
@@ -266,6 +283,26 @@ public class WorldMap {
                 Map<MapConstants.TILE_INHABITANTS, Double> deltaInhabitantTile = deltaInhabitants.get(x).get(y);
                 mapTiles[x][y].getInhabitants().put(MapConstants.TILE_INHABITANTS.HUMAN, mapTiles[x][y].getInhabitants().get(MapConstants.TILE_INHABITANTS.HUMAN) + deltaInhabitantTile.get(MapConstants.TILE_INHABITANTS.HUMAN));
                 mapTiles[x][y].getInhabitants().put(MapConstants.TILE_INHABITANTS.ZOMBIE, mapTiles[x][y].getInhabitants().get(MapConstants.TILE_INHABITANTS.ZOMBIE) + deltaInhabitantTile.get(MapConstants.TILE_INHABITANTS.ZOMBIE));
+            }
+        }
+
+        //have the zombie population move
+        for (int x = 0; x < mapTiles.length; x++) {
+            for (int y = 0; y < mapTiles[x].length; y++) {
+                double[] weight = calculateZombieSpreadWeghting(x, y);
+                System.out.println(weight);
+                double pop = mapTiles[x][y].getInhabitants().get(MapConstants.TILE_INHABITANTS.ZOMBIE);
+
+                double dCorner = pop * Math.pow((weight[0]*weight[1])/(weight[0]+weight[1]),1.25);
+                double dLeftRight = pop *  Math.pow(weight[0], 1.5);
+                double dUpDown = pop *  Math.pow(weight[1], 1.5);
+                double dCurrent = -(dCorner+dLeftRight+dUpDown);
+
+                mapTiles[x][y].getInhabitants().put(MapConstants.TILE_INHABITANTS.ZOMBIE, mapTiles[x][y].getInhabitants().get(MapConstants.TILE_INHABITANTS.ZOMBIE)+dCurrent);
+                mapTiles[x+(int) (dLeftRight/Math.abs(dLeftRight))][y].getInhabitants().put(MapConstants.TILE_INHABITANTS.ZOMBIE, mapTiles[x][y].getInhabitants().get(MapConstants.TILE_INHABITANTS.ZOMBIE)+dLeftRight);
+                mapTiles[x][y+(int) (dUpDown/Math.abs(dUpDown))].getInhabitants().put(MapConstants.TILE_INHABITANTS.ZOMBIE, mapTiles[x][y].getInhabitants().get(MapConstants.TILE_INHABITANTS.ZOMBIE)+dUpDown);
+                mapTiles[x+(int) (dLeftRight/Math.abs(dLeftRight))][y+(int) (dUpDown/Math.abs(dUpDown))].getInhabitants().put(MapConstants.TILE_INHABITANTS.ZOMBIE, mapTiles[x][y].getInhabitants().get(MapConstants.TILE_INHABITANTS.ZOMBIE)+dCorner);
+
             }
         }
 

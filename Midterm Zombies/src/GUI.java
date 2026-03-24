@@ -1,5 +1,10 @@
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
 import constants.Constants.*;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.Group;
@@ -17,6 +22,8 @@ public class GUI extends Application {
     private static Circle[][] inhabitantPixelMap;
     
     private static Stage mainStage;
+    
+    private ScheduledExecutorService executor;
 
     /**
      * A Fake main function for to trick javaFX, is called by the real main function in App.java
@@ -44,7 +51,18 @@ public class GUI extends Application {
         inhabitantPixelMap = new Circle[MapConstants.MAP_WIDTH][MapConstants.MAP_HEIGHT];
         mainStage = stage;
         buildMap(stage);
-    }  
+
+        executor = Executors.newSingleThreadScheduledExecutor();
+        executor.scheduleAtFixedRate(() -> {
+
+            // --- Off UI thread: pure logic ---
+            App.periodic();;
+
+            // --- On UI thread: scene graph changes ---
+            Platform.runLater(() -> updateMap());
+
+        }, 0, 1000, TimeUnit.MILLISECONDS);
+    }
 
     private static void buildMap(Stage stage) throws Exception{
         Tile[][] tileMap = App.worldMap.getTiles();
