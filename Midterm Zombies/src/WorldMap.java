@@ -2,8 +2,13 @@ import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.DoubleBinaryOperator;
+
+import javax.swing.plaf.metal.MetalComboBoxUI.MetalPropertyChangeListener;
+
 import constants.Constants.*;
 import constants.Constants.MapConstants.TILE_INFRASTRUCTURE;
+import constants.Constants.MapConstants.TILE_INHABITANTS;
 
 /**
  * Represents the world map composed of tiles with different biomes and inhabitants.
@@ -117,7 +122,9 @@ public class WorldMap {
         while (true) {
             int[] coord = randomCoordinate();
             if (mapTiles[coord[0]][coord[1]].getBiome() != MapConstants.TILE_BIOMES.WATER){
-                mapTiles[coord[0]][coord[1]].addInfectedPeople(50);
+                mapTiles[coord[0]][coord[1]].addHumans(MapConstants.INIT_INFECTED);
+                mapTiles[coord[0]][coord[1]].addInfectedPeople(MapConstants.INIT_INFECTED);
+                System.out.println("infection started at "+coord[0]+","+coord[1]);
                 break;
             }
         }
@@ -166,7 +173,7 @@ public class WorldMap {
             if (isValid.get(infrastructure)) {
                 if (roll < MapConstants.INFRASTRUCTURE_SPAWN_RATES.get(infrastructure)) {
                     if (infrastructure != MapConstants.TILE_INFRASTRUCTURE.EMPTY){
-                    System.out.println("TILE at " + tile.getCoordinates()[0] + ", " + tile.getCoordinates()[1] + " spawned with infrastructure " + infrastructure);
+                    // System.out.println("TILE at " + tile.getCoordinates()[0] + ", " + tile.getCoordinates()[1] + " spawned with infrastructure " + infrastructure);
                     }
                     return infrastructure;
                 } else {
@@ -201,6 +208,9 @@ public class WorldMap {
 
     private double computeDeltaZombie(double humanPopulation, double zombiePopulation) {
         double deltaZombie = 0.0;
+        if (humanPopulation + zombiePopulation == 0){
+            return 0;
+        }
         deltaZombie += SpreadConstants.CZD * humanPopulation * zombiePopulation / (humanPopulation + zombiePopulation); //zombies killed by survivors
 
         return deltaZombie;
@@ -208,6 +218,9 @@ public class WorldMap {
 
     private double computeInfected(double humanPopulation, double zombiePopulation) {
         double newInfected = 0.0;
+        if (humanPopulation + zombiePopulation == 0){
+            return 0;
+        }
         newInfected += SpreadConstants.CSI * humanPopulation * zombiePopulation / (humanPopulation + zombiePopulation); //humans infected by zombies
 
         return newInfected;
@@ -215,18 +228,35 @@ public class WorldMap {
 
     private double[] calculateZombieSpreadWeghting(int x, int y){
         double[] weighting = new double[2];
-        for (int xCord = Math.max(0, x-5); xCord < Math.min(MapConstants.MAP_WIDTH,x+5); xCord++){
-            for (int yCord = Math.max(0, y-5); yCord < Math.min(MapConstants.MAP_HEIGHT,y+5); yCord++){
-                double dx = Math.max(xCord-x,.5);
-                double dy = Math.max(yCord-y,.5);
-                double pop = mapTiles[xCord][yCord].getInhabitants().get(MapConstants.TILE_INHABITANTS.HUMAN);
+        for (int xCord = Math.max(0, x-5); xCord < Math.min(MapConstants.MAP_WIDTH, x+5); xCord++){
+            for (int yCord = Math.max(0, y-5); yCord < Math.min(MapConstants.MAP_HEIGHT, y+5); yCord++){
+                int xCoef = 1;
+                int yCoef = 1;
+                if (xCord-x < 0){
+                    xCoef = -1;
+                } if (yCord-y < 0){
+                    yCoef = -1;
+                }
+                double dx = xCoef * Math.max(Math.abs(xCord-x), .5);
+                double dy = yCoef * Math.max(Math.abs(yCord-y), .5);
+                double pop = mapTiles[xCord][yCord].getHumans();
                 weighting[0] += pop/dx;
                 weighting[1] += pop/dy;
             }
         }
         // make both proportions
-        weighting[0] = weighting[0] / (weighting[0]+weighting[1]);
-        weighting[1] = weighting[1] / (weighting[0]+weighting[1]);
+        double total = weighting[0] + weighting[1];
+        if (total == 0){
+            return new double[] {0,0};
+        }
+
+        weighting[0] = weighting[0] / total;
+        weighting[1] = weighting[1] / total;
+
+        if (Double.isNaN(weighting[0]) || Double.isNaN(weighting[1])) {
+            return new double[] {0,0};
+        }
+
         return weighting;
     }
 
@@ -235,9 +265,9 @@ public class WorldMap {
         double startTime = System.currentTimeMillis();
         ArrayList<ArrayList<Map<MapConstants.TILE_INHABITANTS, Double>>> deltaInhabitants = new ArrayList<ArrayList<Map<MapConstants.TILE_INHABITANTS, Double>>>(); //normal array doesn't work with maps, so this mess will have to do instead
         double deltaStartTime = System.currentTimeMillis();
+        double increment = SpreadConstants.PERIODIC_INCREMENT; //initialize this at the start, then when we iterate through the tiles the first time, check if it needs to be reduced to prevent negative populations
         for (int x = 0; x < mapTiles.length; x++) { 
             ArrayList<Map<MapConstants.TILE_INHABITANTS, Double>> column = new ArrayList<Map<MapConstants.TILE_INHABITANTS, Double>>(); //compute as tiles, then combine those into colums, then into one large deltaInhabitants array
-            double increment = SpreadConstants.PERIODIC_INCREMENT; //initialize this at the start, then when we iterate through the tiles the first time, check if it needs to be reduced to prevent negative populations
             for (int y = 0; y < mapTiles[x].length; y++) {
                 mapTiles[x][y].progressInfection(); // progress the infection on the tile, turning infected humans into zombies
 
@@ -245,32 +275,38 @@ public class WorldMap {
                 deltaInhabitantTile.put(MapConstants.TILE_INHABITANTS.HUMAN, 0.0);
                 deltaInhabitantTile.put(MapConstants.TILE_INHABITANTS.ZOMBIE, 0.0);
                 
-                Map<MapConstants.TILE_INHABITANTS, Double> currentInhabitants = new HashMap<MapConstants.TILE_INHABITANTS, Double>();
-                currentInhabitants.put(MapConstants.TILE_INHABITANTS.HUMAN, 0.0);
-                currentInhabitants.put(MapConstants.TILE_INHABITANTS.ZOMBIE, 0.0);
-                for (Tile adjacentTile : getAdjacentTiles(x, y)) { //sum all the adjacent inhabitants and add them to the current tile's inhabitants with a weight
-                    Map<MapConstants.TILE_INHABITANTS, Double> adjacentInhabitants = adjacentTile.getInhabitants();
-                    // System.out.println(adjacentTile.getCoordinates()[0] + ", " + adjacentTile.getCoordinates()[1]);
-                    currentInhabitants.put(MapConstants.TILE_INHABITANTS.HUMAN, currentInhabitants.get(MapConstants.TILE_INHABITANTS.HUMAN) + adjacentInhabitants.get(MapConstants.TILE_INHABITANTS.HUMAN)*SpreadConstants.ADJAECANT_HUMAN_COLLABORATION_WEIGHT);
-                    currentInhabitants.put(MapConstants.TILE_INHABITANTS.ZOMBIE, currentInhabitants.get(MapConstants.TILE_INHABITANTS.ZOMBIE) + adjacentInhabitants.get(MapConstants.TILE_INHABITANTS.ZOMBIE)*SpreadConstants.ADJAECANT_ZOMBIE_COLLABORATION_WEIGHT);
-                }
 
-                double deltaHuman = computeDeltaHuman(currentInhabitants.get(MapConstants.TILE_INHABITANTS.HUMAN), currentInhabitants.get(MapConstants.TILE_INHABITANTS.ZOMBIE));
-                double deltaZombie = computeDeltaZombie(currentInhabitants.get(MapConstants.TILE_INHABITANTS.HUMAN), currentInhabitants.get(MapConstants.TILE_INHABITANTS.ZOMBIE));
-                double newInfected = computeInfected(currentInhabitants.get(MapConstants.TILE_INHABITANTS.HUMAN), currentInhabitants.get(MapConstants.TILE_INHABITANTS.ZOMBIE));
+                double deltaHuman = computeDeltaHuman(mapTiles[x][y].getHumans(), mapTiles[x][y].getZombies());
+                double deltaZombie = computeDeltaZombie(mapTiles[x][y].getHumans(), mapTiles[x][y].getZombies());
+                double newInfected = computeInfected(mapTiles[x][y].getHumans(),  mapTiles[x][y].getZombies());
                 
                 //check if incrememnt needs to be reduced to prevent negative populations, if so reduce it
-                double currentHumans = mapTiles[x][y].getInhabitants().get(MapConstants.TILE_INHABITANTS.HUMAN);
-                double currentZombies = mapTiles[x][y].getInhabitants().get(MapConstants.TILE_INHABITANTS.ZOMBIE);
+                double currentHumans = mapTiles[x][y].getHumans();
+                double currentZombies = mapTiles[x][y].getZombies();
                 double currentInfected = mapTiles[x][y].getTotalInfected();
-                if (currentHumans < -deltaHuman * increment){
-                    deltaHuman = -currentHumans / increment;
-                } else if (currentZombies < -deltaZombie * increment){
-                    deltaZombie = -currentZombies / increment;
-                } else if ((currentHumans - currentInfected) < -newInfected * increment) {
-                    newInfected = (currentHumans - currentInfected) / increment;
+                if (currentHumans < deltaHuman * increment){
+                    if (GeneralConstants.DEBUG){
+                    System.out.println("IncrementProtection detected an error with the humans at"+x+","+y+", new increment is "+-currentHumans/deltaHuman);
+                    System.out.println("Humans currPop:"+currentHumans+"   deltaPop:"+deltaHuman);}
+                    increment = -currentHumans / deltaHuman;
                 }
-                mapTiles[x][y].addInfectedPeople(newInfected);
+                if (currentZombies < deltaZombie * increment){
+                    if (GeneralConstants.DEBUG){
+                    System.out.println("IncrementProtection detected an error with the zombies at"+x+","+y+", new increment is "+-currentZombies/deltaZombie);
+                    System.out.println("Zombies currPop:"+currentZombies+"   deltaPop:"+deltaZombie);}
+                    increment = -currentZombies / deltaZombie;
+                } 
+                if ((currentHumans - currentInfected) < -newInfected * increment) {
+                    if (GeneralConstants.DEBUG){
+                        System.out.println("IncrementProtection detected an error with the infected at"+x+","+y+", new increment is "+(-(currentHumans - currentInfected) / currentHumans));
+                    System.out.println("Infected currPop:"+(currentHumans-currentInfected)+"   deltaPop:"+newInfected);}
+                    increment = -(currentHumans - currentInfected) / currentHumans;
+                }
+                if (increment <= 0 || Double.isNaN(increment)){
+                    System.out.println("ERR Increment = "+increment);
+                    System.exit(-1);
+                }
+                mapTiles[x][y].addInfectedPeople(increment * newInfected);
                 deltaInhabitantTile.put(MapConstants.TILE_INHABITANTS.HUMAN, deltaHuman);
                 deltaInhabitantTile.put(MapConstants.TILE_INHABITANTS.ZOMBIE, deltaZombie);
                 column.add(deltaInhabitantTile);
@@ -284,8 +320,8 @@ public class WorldMap {
             for (int y = 0; y < mapTiles[x].length; y++) {
                
                 Map<MapConstants.TILE_INHABITANTS, Double> deltaInhabitantTile = deltaInhabitants.get(x).get(y);
-                mapTiles[x][y].getInhabitants().put(MapConstants.TILE_INHABITANTS.HUMAN, mapTiles[x][y].getInhabitants().get(MapConstants.TILE_INHABITANTS.HUMAN) + deltaInhabitantTile.get(MapConstants.TILE_INHABITANTS.HUMAN));
-                mapTiles[x][y].getInhabitants().put(MapConstants.TILE_INHABITANTS.ZOMBIE, mapTiles[x][y].getInhabitants().get(MapConstants.TILE_INHABITANTS.ZOMBIE) + deltaInhabitantTile.get(MapConstants.TILE_INHABITANTS.ZOMBIE));
+                mapTiles[x][y].addHumans(mapTiles[x][y].getHumans() + increment * deltaInhabitantTile.get(MapConstants.TILE_INHABITANTS.HUMAN));
+                mapTiles[x][y].addZombies(mapTiles[x][y].getZombies() + increment * deltaInhabitantTile.get(MapConstants.TILE_INHABITANTS.ZOMBIE));
             }
         }
         System.out.println("apply updates took "+(System.currentTimeMillis()-applyStartTime)+"ms");
@@ -294,17 +330,43 @@ public class WorldMap {
         for (int x = 0; x < mapTiles.length; x++) {
             for (int y = 0; y < mapTiles[x].length; y++) {
                 double[] weight = calculateZombieSpreadWeghting(x, y);
-                double pop = mapTiles[x][y].getInhabitants().get(MapConstants.TILE_INHABITANTS.ZOMBIE);
+                if (weight[0]+weight[1] == 0){
+                    continue;
+                }
+                double pop = mapTiles[x][y].getZombies();
 
-                double dCorner = pop * Math.pow((weight[0]*weight[1])/(weight[0]+weight[1]),1.25);
-                double dLeftRight = pop *  Math.pow(weight[0], 1.5);
-                double dUpDown = pop *  Math.pow(weight[1], 1.5);
+                double dCorner = 0;
+                double dLeftRight = 0;
+                double dUpDown = 0;
+
+                // only compute movements from positive proportional weights.
+                if (weight[0] > 0 && weight[1] > 0) {
+                    dCorner = pop * Math.pow((weight[0]*weight[1])/(Math.abs(weight[0])+Math.abs(weight[1])),1.25);
+                }
+                if (weight[0] > 0) {
+                    dLeftRight = pop * Math.pow(weight[0], 1.5);
+                }
+                if (weight[1] > 0) {
+                    dUpDown = pop * Math.pow(weight[1], 1.5);
+                }
+
                 double dCurrent = -(dCorner+dLeftRight+dUpDown);
 
-                mapTiles[x][y].getInhabitants().put(MapConstants.TILE_INHABITANTS.ZOMBIE, mapTiles[x][y].getInhabitants().get(MapConstants.TILE_INHABITANTS.ZOMBIE)+dCurrent);
-                mapTiles[x+(int) (dLeftRight/Math.abs(dLeftRight))][y].getInhabitants().put(MapConstants.TILE_INHABITANTS.ZOMBIE, mapTiles[x][y].getInhabitants().get(MapConstants.TILE_INHABITANTS.ZOMBIE)+dLeftRight);
-                mapTiles[x][y+(int) (dUpDown/Math.abs(dUpDown))].getInhabitants().put(MapConstants.TILE_INHABITANTS.ZOMBIE, mapTiles[x][y].getInhabitants().get(MapConstants.TILE_INHABITANTS.ZOMBIE)+dUpDown);
-                mapTiles[x+(int) (dLeftRight/Math.abs(dLeftRight))][y+(int) (dUpDown/Math.abs(dUpDown))].getInhabitants().put(MapConstants.TILE_INHABITANTS.ZOMBIE, mapTiles[x][y].getInhabitants().get(MapConstants.TILE_INHABITANTS.ZOMBIE)+dCorner);
+                mapTiles[x][y].getInhabitants().put(MapConstants.TILE_INHABITANTS.ZOMBIE,
+                    mapTiles[x][y].getZombies() + dCurrent);
+
+                if (dLeftRight > 0 && x + 1 < mapTiles.length) {
+                    mapTiles[x+1][y].getInhabitants().put(MapConstants.TILE_INHABITANTS.ZOMBIE,
+                        mapTiles[x+1][y].getZombies() + dLeftRight);
+                }
+                if (dUpDown > 0 && y + 1 < mapTiles[x].length) {
+                    mapTiles[x][y+1].getInhabitants().put(MapConstants.TILE_INHABITANTS.ZOMBIE,
+                        mapTiles[x][y+1].getZombies() + dUpDown);
+                }
+                if (dCorner > 0 && x + 1 < mapTiles.length && y + 1 < mapTiles[x].length) {
+                    mapTiles[x+1][y+1].getInhabitants().put(MapConstants.TILE_INHABITANTS.ZOMBIE,
+                        mapTiles[x+1][y+1].getZombies() + dCorner);
+                }
 
             }
         }
@@ -312,20 +374,44 @@ public class WorldMap {
 
 
         if (GeneralConstants.DEBUG) {
+            double totalHuman = 0;
+            double totalZombie = 0;
+            double totalInfected = 0;
             for (int x = 0; x < mapTiles.length; x++) {
                 for (int y = 0; y < mapTiles[x].length; y++) {
-                    Map<MapConstants.TILE_INHABITANTS, Double> inhabitants = mapTiles[x][y].getInhabitants();
-                    if (inhabitants.get(MapConstants.TILE_INHABITANTS.HUMAN) < 0){
+                    if (Double.isNaN(mapTiles[x][y].getHumans()) ||
+                        Double.isNaN(mapTiles[x][y].getZombies()) ||
+                        Double.isNaN(mapTiles[x][y].getTotalInfected())){
+                            System.out.println("SOMETHING HAS GONE HORRIBLY WRONG AT "+x+","+y);
+                            System.out.println(Double.isNaN(mapTiles[x][y].getHumans()));
+                            System.out.println(Double.isNaN(mapTiles[x][y].getZombies()));
+                            System.out.println(Double.isNaN(mapTiles[x][y].getTotalInfected()));
+
+                            
+                            System.exit(1);
+                    }
+                    totalHuman += mapTiles[x][y].getHumans();
+                    totalZombie += mapTiles[x][y].getZombies();
+                    totalInfected += mapTiles[x][y].getTotalInfected();
+                    if (mapTiles[x][y].getHumans() < 0){
                         System.out.println("Negative humans at " + x + ", " + y);
-                    } if (inhabitants.get(MapConstants.TILE_INHABITANTS.ZOMBIE) < 0){
+                        System.exit(1);
+                    } if (mapTiles[x][y].getZombies() < 0){
                         System.out.println("Negative zombies at " + x + ", " + y);
+                        System.exit(1);
                     } if (mapTiles[x][y].getTotalInfected() < 0){
                         System.out.println("Negative infected at " + x + ", " + y);
-                    } if (mapTiles[x][y].getTotalInfected() > inhabitants.get(MapConstants.TILE_INHABITANTS.HUMAN)){
+                        System.exit(1);
+                    } if (mapTiles[x][y].getTotalInfected() > mapTiles[x][y].getHumans()){
                         System.out.println("More infected than humans at " + x + ", " + y);
+                        System.out.println("Humans:"+mapTiles[x][y].getHumans()+"    Infected"+mapTiles[x][y].getTotalInfected());
+                        System.exit(1);
                     }
                 }
             }
+        System.out.println("Total Human:"+totalHuman);
+        System.out.println("Total Zombie:"+totalZombie);
+        System.out.println("Total Infected:"+totalInfected);
         
         System.out.println("Periodic update took " + (System.currentTimeMillis() - startTime) + "ms");
         System.out.println("Periodic update took approxamately" + ((System.currentTimeMillis()-startTime)/(MapConstants.MAP_WIDTH*MapConstants.MAP_HEIGHT)) + "ms per tile");

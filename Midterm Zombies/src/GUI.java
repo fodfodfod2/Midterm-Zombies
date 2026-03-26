@@ -80,10 +80,10 @@ public class GUI extends Application {
         for (int x = 0; x < tileMap.length; x++) {
             for (int y = 0; y < tileMap[x].length; y++) {
                 Circle pixel = new Circle(x * MapConstants.MAP_SCALE, y * MapConstants.MAP_SCALE, MapConstants.MAP_SCALE*.5);
-                double humanAmt = tileMap[x][y].getInhabitants().get(MapConstants.TILE_INHABITANTS.HUMAN);
+                double humanAmt = tileMap[x][y].getHumans();
                 double infectedAmt = tileMap[x][y].getTotalInfected();
                 humanAmt -= infectedAmt;
-                double zombieAmt = tileMap[x][y].getInhabitants().get(MapConstants.TILE_INHABITANTS.ZOMBIE);
+                double zombieAmt = tileMap[x][y].getZombies();
 
                 double total = humanAmt+infectedAmt+zombieAmt;
                 double b =  humanAmt/MapConstants.INHABITANT_COLOR_WEIGHTING.get(MapConstants.TILE_INHABITANTS.HUMAN);
@@ -108,28 +108,20 @@ public class GUI extends Application {
     }
 
     public static void updateMap(){
+
+        if (GeneralConstants.DEBUG){
+            System.out.println("Updating map");
+        }
         double startTime = System.currentTimeMillis();
         Tile[][] tileMap = App.worldMap.getTiles();
-        // Group base = new Group();
-        // Scene scene = new Scene(base, MapConstants.MAP_WIDTH * MapConstants.MAP_SCALE,
-        //         MapConstants.MAP_HEIGHT * MapConstants.MAP_SCALE);
-        // scene.setFill(Color.RED);
-        // for (int x = 0; x < tileMap.length; x++) {
-        //     for (int y = 0; y < tileMap[x].length; y++) {
-        //         Rectangle pixel = biomePixelMap[x][y];
-        //         pixel.setFill(MapConstants.BIOME_COLORS.get(tileMap[x][y].getBiome()));
-        //         base.getChildren().add(pixel);
-        //         biomePixelMap[x][y] = pixel;
-        //     }
-        // }
 
         for (int x = 0; x < tileMap.length; x++) {
             for (int y = 0; y < tileMap[x].length; y++) {
                 Circle pixel = inhabitantPixelMap[x][y];
-                double humanAmt = tileMap[x][y].getInhabitants().get(MapConstants.TILE_INHABITANTS.HUMAN);
+                double humanAmt = tileMap[x][y].getHumans();
                 double infectedAmt = tileMap[x][y].getTotalInfected();
                 humanAmt -= infectedAmt;
-                double zombieAmt = tileMap[x][y].getInhabitants().get(MapConstants.TILE_INHABITANTS.ZOMBIE);
+                double zombieAmt = tileMap[x][y].getZombies();
 
                 double total = humanAmt+infectedAmt+zombieAmt;
                 double b =  humanAmt/MapConstants.INHABITANT_COLOR_WEIGHTING.get(MapConstants.TILE_INHABITANTS.HUMAN);
@@ -142,8 +134,7 @@ public class GUI extends Application {
                 b = Math.clamp(b, 0, 1);
                 a = Math.max(Math.max(r, g),b);
 
-                // pixel.setFill(new Color(r, g, b, a));
-                pixel.setFill(1,1,1,1);
+                pixel.setFill(new Color(r, g, b, a));
                 // base.getChildren().add(pixel);
                 // inhabitantPixelMap[x][y] = pixel;
             }

@@ -7,43 +7,52 @@ import constants.Constants.MapConstants.TILE_INHABITANTS;
  * Represents a tile in the game world with inhabitants, biome, and inhabitant strength.
  */
 public class Tile {
-    private Map<MapConstants.TILE_INHABITANTS, Double> inhabitants = new HashMap<MapConstants.TILE_INHABITANTS, Double>(Map.of(
-            MapConstants.TILE_INHABITANTS.HUMAN, 0.0,
-            MapConstants.TILE_INHABITANTS.ZOMBIE, 0.0));
+    private Map<MapConstants.TILE_INHABITANTS, Double> inhabitants;
 
-    private double[] infectedPopulations = new double[SpreadConstants.INFECTION_ITERATIONS+SpreadConstants.STDEV_TIME_FROM_INFECTION_TO_ZOMBIE];
+    private double[] infectedPopulations;
 
     private MapConstants.TILE_BIOMES biome;
 
     private MapConstants.TILE_INFRASTRUCTURE infrastructure = null;
 
     public void addInfectedPeople(double amt) {
+        if (Double.isNaN(amt)){
+            System.out.println("added NAN infected");
+            System.exit(1);
+        }
         for (int i = 0; i < SpreadConstants.INFECTION_ITERATIONS; i++) {
             infectedPopulations[(int) (SpreadConstants.MEAN_TIME_FROM_INFECTION_TO_ZOMBIE+Math.pow(Math.random()*Math.pow(SpreadConstants.STDEV_TIME_FROM_INFECTION_TO_ZOMBIE,2),.5))] += amt / SpreadConstants.INFECTION_ITERATIONS;
         }
     }
 
     public void progressInfection() {
+        
         double newZombies = infectedPopulations[0];
         for (int i = 1; i < infectedPopulations.length; i++) {
             infectedPopulations[i-1] = infectedPopulations[i];
         }
         infectedPopulations[infectedPopulations.length-1] = 0;
+
         inhabitants.put(MapConstants.TILE_INHABITANTS.ZOMBIE, inhabitants.get(MapConstants.TILE_INHABITANTS.ZOMBIE) + newZombies);
         inhabitants.put(MapConstants.TILE_INHABITANTS.HUMAN, inhabitants.get(MapConstants.TILE_INHABITANTS.HUMAN) - newZombies);
+        // System.out.println("h:"+inhabitants.get(TILE_INHABITANTS.HUMAN)+"     z:"+inhabitants.get(TILE_INHABITANTS.ZOMBIE));
     }
 
     private int[] coordinates;
     /**
      * Constructs a new Tile with the specified inhabitants, biome, and inhabitant strength.
      *
-     * @param inhabitants the type of inhabitants on this tile
      * @param biome the biome type of this tile
-     * @param inhabitantStrength the strength of the inhabitants hold on this tile, 0 to 1
      */
     public Tile(MapConstants.TILE_BIOMES biome, int xCoordinate, int yCoordinate) {
         this.biome = biome;
         this.coordinates = new int[]{xCoordinate, yCoordinate};
+
+        inhabitants = new HashMap<MapConstants.TILE_INHABITANTS, Double>(Map.of(
+            MapConstants.TILE_INHABITANTS.HUMAN, 0.0,
+            MapConstants.TILE_INHABITANTS.ZOMBIE, 0.0));
+        
+        infectedPopulations = new double[SpreadConstants.INFECTION_ITERATIONS+SpreadConstants.STDEV_TIME_FROM_INFECTION_TO_ZOMBIE];
     }
 
     /**
@@ -92,10 +101,56 @@ public class Tile {
     public int[] getCoordinates() {
         return coordinates;
     }
+    
+    public double getHumans(){
+        return inhabitants.get(TILE_INHABITANTS.HUMAN);
+    }
+
+    public double getZombies(){
+        return inhabitants.get(TILE_INHABITANTS.ZOMBIE);
+    }
+
+    public void addHumans(double amt){
+        if (Double.isNaN(amt)){
+            System.out.println("added NAN Humans");
+            System.exit(1);
+        }
+        if (amt > 0){
+            inhabitants.put(TILE_INHABITANTS.HUMAN, inhabitants.get(TILE_INHABITANTS.HUMAN)+amt);
+        } else if (amt < 0){
+            double proportionInfected = getTotalInfected() / getHumans();
+            inhabitants.put(TILE_INHABITANTS.HUMAN, inhabitants.get(TILE_INHABITANTS.HUMAN)+amt / proportionInfected);
+
+
+            double totalInfected = getTotalInfected();
+            for (int i = 0; i < infectedPopulations.length; i++){
+                double proportionOfInfected = infectedPopulations[i] / totalInfected;
+                infectedPopulations[i] += amt * proportionInfected*proportionOfInfected;
+            }
+        }
+    }
+
+    public void addZombies(double amt){
+        if (Double.isNaN(amt)){
+            System.out.println("added NAN Zombies");
+            System.exit(1);
+        }
+
+        inhabitants.put(TILE_INHABITANTS.ZOMBIE, getZombies()+amt);
+    }
+
 
     public double getTotalInfected() {
         double totalInfected = 0;
         for (double infected : infectedPopulations) {
+            if (Double.isNaN(infected)){
+                System.out.println("faaaaaaa");
+                System.exit(1);
+            }
+            if  (infected < 0){
+                System.out.println("Negative infected at" + coordinates[0]+","+coordinates[1]);
+                System.exit(1);
+            }
             totalInfected += infected;
         }
         return totalInfected;

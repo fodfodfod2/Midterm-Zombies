@@ -1,6 +1,4 @@
 package constants;
-import java.lang.classfile.constantpool.DoubleEntry;
-import java.util.HashMap;
 import java.util.Map;
 
 import constants.Constants.MapConstants.TILE_BIOMES;
@@ -15,6 +13,8 @@ public class Constants {
     }
 
     public static class MapConstants {   
+
+        public static final double INIT_INFECTED = 500000;
         /**
          * Enumeration of possible biome types for tiles in the world map.
          */
