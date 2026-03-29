@@ -19,12 +19,12 @@ public class Constants {
         /**
          * the radius within which zombie search for humans
          */
-        public static final int ZOMBIE_WEIGHTING_RADIUS = 7;
+        public static int ZOMBIE_WEIGHTING_RADIUS = 13;
     }
 
     public static class MapConstants {   
 
-        public static final double INIT_INFECTED = 500000;
+        public static final double INIT_INFECTED = 5000;
         /**
          * Enumeration of possible biome types for tiles in the world map.
          */
@@ -71,9 +71,9 @@ public class Constants {
                 TILE_BIOMES.SWAMP, Color.BURLYWOOD);
         
         public static final Map<TILE_INHABITANTS, Double> INHABITANT_COLOR_WEIGHTING = Map.of(
-                TILE_INHABITANTS.HUMAN, 500.0,
-                TILE_INHABITANTS.ZOMBIE, 200.0,
-                TILE_INHABITANTS.INFECTED, 100.0);
+                TILE_INHABITANTS.HUMAN, 50.0,
+                TILE_INHABITANTS.ZOMBIE, 50.0,
+                TILE_INHABITANTS.INFECTED, 50.0);
         
         public static final Map<TILE_BIOMES, Double> BIOME_SPREAD_COEFFICIENT = Map.of(
                 TILE_BIOMES.WATER, 0.0,
@@ -120,7 +120,7 @@ public class Constants {
         /**
          * The height of the world map in tiles.
          */
-        public static final int MAP_HEIGHT = 1080/MAP_SCALE;
+        public static final int MAP_HEIGHT = 980/MAP_SCALE;
 
         /**
          * Maximum number of groups/clusters allowed for each biome type during map generation.

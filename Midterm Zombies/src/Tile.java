@@ -16,8 +16,8 @@ public class Tile {
     private MapConstants.TILE_INFRASTRUCTURE infrastructure = null;
 
     public void addInfectedPeople(double amt) {
-        if (Double.isNaN(amt)){
-            System.out.println("added NAN infected");
+        if (Double.isNaN(amt) || Double.isInfinite(amt) || amt < 0){
+            System.out.println("added "+amt+" infected");
             System.exit(1);
         }
         for (int i = 0; i < SpreadConstants.INFECTION_ITERATIONS; i++) {
@@ -101,7 +101,7 @@ public class Tile {
         this.biome = biome;
     }
 
-    public Map<MapConstants.TILE_INHABITANTS, Double> getInhabitants() {
+    private Map<MapConstants.TILE_INHABITANTS, Double> getInhabitants() {
         return inhabitants;
     }
 
@@ -110,64 +110,167 @@ public class Tile {
     }
     
     public double getHumans(){
-        if (inhabitants.get(TILE_INHABITANTS.HUMAN) < GeneralConstants.NEGATIVE_POPULATION_TOLERANCE){
-            inhabitants.put(TILE_INHABITANTS.HUMAN, 0.0);
+        double h = inhabitants.get(TILE_INHABITANTS.HUMAN);
+        if (!Double.isFinite(h) || h < GeneralConstants.NEGATIVE_POPULATION_TOLERANCE){
+            h = 0.0;
+            inhabitants.put(TILE_INHABITANTS.HUMAN,h);
         }
-        return inhabitants.get(TILE_INHABITANTS.HUMAN);
+        return h;
     }
 
     public double getZombies(){
-        if (inhabitants.get(TILE_INHABITANTS.ZOMBIE) < GeneralConstants.NEGATIVE_POPULATION_TOLERANCE){
-            inhabitants.put(TILE_INHABITANTS.ZOMBIE, 0.0);
+        double z = inhabitants.get(TILE_INHABITANTS.ZOMBIE);
+        if (!Double.isFinite(z) || z < GeneralConstants.NEGATIVE_POPULATION_TOLERANCE){
+            z = 0.0;
+            inhabitants.put(TILE_INHABITANTS.ZOMBIE,z);
         }
-        return inhabitants.get(TILE_INHABITANTS.ZOMBIE);
+        return z;
     }
 
     public void addHumans(double amt){
-        if (Double.isNaN(amt)){
-            System.out.println("added NAN Humans");
+        if (!Double.isFinite(amt)){
+            System.out.println("added invalid Humans: " + amt);
             System.exit(1);
         }
         if (amt > 0){
             inhabitants.put(TILE_INHABITANTS.HUMAN, inhabitants.get(TILE_INHABITANTS.HUMAN)+amt);
         } else if (amt < 0){
-            double proportionInfected = getTotalInfected() / getHumans();
-            inhabitants.put(TILE_INHABITANTS.HUMAN, inhabitants.get(TILE_INHABITANTS.HUMAN)+amt / proportionInfected);
-
-
             double totalInfected = getTotalInfected();
-            for (int i = 0; i < infectedPopulations.length; i++){
-                double proportionOfInfected = infectedPopulations[i] / totalInfected;
-                infectedPopulations[i] += amt * proportionInfected*proportionOfInfected;
+            double currentHumans = getHumans();
+            if (currentHumans - totalInfected < 0){
+                trimInfected((currentHumans - totalInfected));
             }
+            if (totalInfected > 0) {
+                // Scale human removal proportionally across infected and uninfected
+                double proportionInfected = currentHumans > 0 ? totalInfected / currentHumans : 1.0;
+                proportionInfected = Math.min(1.0, Math.max(0.0, proportionInfected));
+
+                double humanDelta = amt / (proportionInfected > 0 ? proportionInfected : 1.0);
+                inhabitants.put(TILE_INHABITANTS.HUMAN, inhabitants.get(TILE_INHABITANTS.HUMAN)+humanDelta);
+
+                for (int i = 0; i < infectedPopulations.length; i++){
+                    double proportionOfInfected = totalInfected > 0 ? infectedPopulations[i] / totalInfected : 0.0;
+                    infectedPopulations[i] += amt * proportionInfected * proportionOfInfected;
+                    if (!Double.isFinite(infectedPopulations[i]) || infectedPopulations[i] < 0){
+                        infectedPopulations[i] = 0.0;
+                    }
+                }
+            } else {
+                // No infected, just remove from human count
+                inhabitants.put(TILE_INHABITANTS.HUMAN, inhabitants.get(TILE_INHABITANTS.HUMAN)+amt);
+            }
+
         }
+        getTotalInfected();
     }
 
     public void addZombies(double amt){
-        if (Double.isNaN(amt)){
-            System.out.println("added NAN Zombies");
+        if (!Double.isFinite(amt)){
+            System.out.println("added invalid Zombies: " + amt);
             System.exit(1);
         }
 
-        inhabitants.put(TILE_INHABITANTS.ZOMBIE, getZombies()+amt);
+        double newZombieCount = getZombies()+amt;
+        if (!Double.isFinite(newZombieCount)) {
+            newZombieCount = 0.0;
+        }
+
+        if (newZombieCount < 0){
+            newZombieCount = 0.0;
+        }
+
+        inhabitants.put(TILE_INHABITANTS.ZOMBIE, newZombieCount);
     }
 
 
     public double getTotalInfected() {
         double totalInfected = 0;
-        for (double infected : infectedPopulations) {
-            if (Double.isNaN(infected)){
-                System.out.println("faaaaaaa");
-                System.exit(1);
-            }
-            if  (infected < 0){
-                System.out.println("Negative infected at" + coordinates[0]+","+coordinates[1]);
+        for (int i = 0; i < infectedPopulations.length; i++){
+            double infected = infectedPopulations[i];
+            if (Double.isNaN(infected) || infected < 0 || Double.isInfinite(infected)){
+                System.out.println(infected+" infected population at "+coordinates[0]+","+coordinates[1]+" index "+i);
                 System.exit(1);
             }
             totalInfected += infected;
         }
+        if (Double.isNaN(totalInfected) || totalInfected < 0 || totalInfected > getHumans()){
+            if (getHumans()-totalInfected < GeneralConstants.NEGATIVE_POPULATION_TOLERANCE){
+                inhabitants.put(TILE_INHABITANTS.HUMAN, totalInfected);
+            } else {
+                System.out.println(getHumans());
+                System.out.println(totalInfected+" total infected population at"+coordinates[0]+","+coordinates[1]);
+                System.exit(1);
+            }
+        }
         return totalInfected;
+        
     }
 
-    
-}
+    /**
+     * Removes a specified amount of infected individuals from this tile.
+     *
+     * The amount is removed proportionally across the infection age buckets based
+     * on their share of total infections.
+     *
+     * @param amount number of infected to remove from the total infected population
+     */
+    public void trimInfected(double amount) {
+        if (Double.isNaN(amount) || Double.isInfinite(amount)) {
+            System.out.println("Invalid amount to trim infected."+amount);
+            System.exit(1);
+        }
+
+        double totalInfected = getTotalInfected();
+        if (totalInfected < 0.0) {
+            for (int i = 0; i < infectedPopulations.length; i++) {
+                infectedPopulations[i] = 0.0;
+            }
+            System.out.println("No infected individuals to trim.");
+            return;
+        }
+
+        if (amount >= totalInfected) {
+            for (int i = 0; i < infectedPopulations.length; i++) {
+                infectedPopulations[i] = 0.0;
+            }
+            return;
+        }
+
+        double removed = 0.0;
+        for (int i = 0; i < infectedPopulations.length; i++) {
+            double cur = infectedPopulations[i];
+            if (cur <= 0.0) {
+                continue;
+            }
+
+            double share = cur / totalInfected;
+            double delta = amount * share;
+            if (delta > cur) {
+                delta = cur;
+            }
+
+            infectedPopulations[i] = cur - delta;
+            removed += delta;
+        }
+
+        // Floating point rounding adjustment: if we still need to drop a tiny remainder, do it from non-empty buckets.
+        double remainder = amount - removed;
+        if (remainder > 1e-9) {
+            for (int i = 0; i < infectedPopulations.length && remainder > 1e-9; i++) {
+                if (infectedPopulations[i] <= 0.0) {
+                    continue;
+                }
+                double take = Math.min(remainder, infectedPopulations[i]);
+                infectedPopulations[i] -= take;
+                remainder -= take;
+            }
+        }
+
+        // safety clamps
+        for (int i = 0; i < infectedPopulations.length; i++) {
+            if (infectedPopulations[i] < 0.0) {
+                infectedPopulations[i] = 0.0;
+            }
+        }
+    }
+    }

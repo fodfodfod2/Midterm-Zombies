@@ -56,7 +56,7 @@ public class GUI extends Application {
         executor.scheduleAtFixedRate(() -> {
             App.periodic();;
             Platform.runLater(() -> updateMap());
-        }, 0, 100, TimeUnit.MILLISECONDS);
+        }, 0, 10, TimeUnit.MILLISECONDS);
     }
 
     private static void buildMap(Stage stage) throws Exception{
