@@ -28,13 +28,20 @@ public class Tile {
     public void progressInfection() {
         
         double newZombies = infectedPopulations[0];
+        if (Double.isNaN(newZombies)){
+            System.out.println("added NAN newZombies");
+            System.exit(1);
+        } else if (newZombies < 0){
+            System.out.println("Negative newZombies at"+coordinates[0]+","+coordinates[1]);
+            System.exit(1);
+        }
         for (int i = 1; i < infectedPopulations.length; i++) {
             infectedPopulations[i-1] = infectedPopulations[i];
         }
         infectedPopulations[infectedPopulations.length-1] = 0;
 
-        inhabitants.put(MapConstants.TILE_INHABITANTS.ZOMBIE, inhabitants.get(MapConstants.TILE_INHABITANTS.ZOMBIE) + newZombies);
-        inhabitants.put(MapConstants.TILE_INHABITANTS.HUMAN, inhabitants.get(MapConstants.TILE_INHABITANTS.HUMAN) - newZombies);
+        addZombies(newZombies);
+        addHumans(-newZombies);
         // System.out.println("h:"+inhabitants.get(TILE_INHABITANTS.HUMAN)+"     z:"+inhabitants.get(TILE_INHABITANTS.ZOMBIE));
     }
 
@@ -103,10 +110,16 @@ public class Tile {
     }
     
     public double getHumans(){
+        if (inhabitants.get(TILE_INHABITANTS.HUMAN) < GeneralConstants.NEGATIVE_POPULATION_TOLERANCE){
+            inhabitants.put(TILE_INHABITANTS.HUMAN, 0.0);
+        }
         return inhabitants.get(TILE_INHABITANTS.HUMAN);
     }
 
     public double getZombies(){
+        if (inhabitants.get(TILE_INHABITANTS.ZOMBIE) < GeneralConstants.NEGATIVE_POPULATION_TOLERANCE){
+            inhabitants.put(TILE_INHABITANTS.ZOMBIE, 0.0);
+        }
         return inhabitants.get(TILE_INHABITANTS.ZOMBIE);
     }
 

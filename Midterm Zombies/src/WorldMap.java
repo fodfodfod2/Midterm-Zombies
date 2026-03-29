@@ -208,7 +208,7 @@ public class WorldMap {
 
     private double computeDeltaZombie(double humanPopulation, double zombiePopulation) {
         double deltaZombie = 0.0;
-        if (humanPopulation + zombiePopulation == 0){
+        if (humanPopulation + zombiePopulation <= 0 || zombiePopulation <= 0){
             return 0;
         }
         deltaZombie += SpreadConstants.CZD * humanPopulation * zombiePopulation / (humanPopulation + zombiePopulation); //zombies killed by survivors
@@ -222,14 +222,20 @@ public class WorldMap {
             return 0;
         }
         newInfected += SpreadConstants.CSI * humanPopulation * zombiePopulation / (humanPopulation + zombiePopulation); //humans infected by zombies
-
+        if (Double.isNaN(newInfected)){
+            System.out.println("added NAN newInfected in the compute function");
+            System.exit(1);
+        } else if (newInfected < 0){
+            System.out.println("Negative newInfected at"+humanPopulation+","+zombiePopulation);
+            System.exit(1);
+        }
         return newInfected;
     }
 
     private double[] calculateZombieSpreadWeghting(int x, int y){
         double[] weighting = new double[2];
-        for (int xCord = Math.max(0, x-5); xCord < Math.min(MapConstants.MAP_WIDTH, x+5); xCord++){
-            for (int yCord = Math.max(0, y-5); yCord < Math.min(MapConstants.MAP_HEIGHT, y+5); yCord++){
+        for (int xCord = Math.max(0, x-GeneralConstants.ZOMBIE_WEIGHTING_RADIUS); xCord < Math.min(MapConstants.MAP_WIDTH, x+GeneralConstants.ZOMBIE_WEIGHTING_RADIUS); xCord++){
+            for (int yCord = Math.max(0, y-GeneralConstants.ZOMBIE_WEIGHTING_RADIUS); yCord < Math.min(MapConstants.MAP_HEIGHT, y+GeneralConstants.ZOMBIE_WEIGHTING_RADIUS); yCord++){
                 int xCoef = 1;
                 int yCoef = 1;
                 if (xCord-x < 0){
@@ -245,6 +251,7 @@ public class WorldMap {
             }
         }
         // make both proportions
+        // System.out.println("weighting:"+weighting[0]+","+weighting[1]);
         double total = weighting[0] + weighting[1];
         if (total == 0){
             return new double[] {0,0};
@@ -284,7 +291,7 @@ public class WorldMap {
                 double currentHumans = mapTiles[x][y].getHumans();
                 double currentZombies = mapTiles[x][y].getZombies();
                 double currentInfected = mapTiles[x][y].getTotalInfected();
-                if (currentHumans < deltaHuman * increment){
+                if (currentHumans< deltaHuman * increment){
                     if (GeneralConstants.DEBUG){
                     System.out.println("IncrementProtection detected an error with the humans at"+x+","+y+", new increment is "+-currentHumans/deltaHuman);
                     System.out.println("Humans currPop:"+currentHumans+"   deltaPop:"+deltaHuman);}
@@ -302,7 +309,7 @@ public class WorldMap {
                     System.out.println("Infected currPop:"+(currentHumans-currentInfected)+"   deltaPop:"+newInfected);}
                     increment = -(currentHumans - currentInfected) / currentHumans;
                 }
-                if (increment <= 0 || Double.isNaN(increment)){
+                if (increment <= 0 || Double.isNaN(increment) || Double.isInfinite(increment)){
                     System.out.println("ERR Increment = "+increment);
                     System.exit(-1);
                 }
@@ -329,6 +336,9 @@ public class WorldMap {
         //have the zombie population move
         for (int x = 0; x < mapTiles.length; x++) {
             for (int y = 0; y < mapTiles[x].length; y++) {
+                if (mapTiles[x][y].getZombies() <= 0){
+                    continue;
+                }
                 double[] weight = calculateZombieSpreadWeghting(x, y);
                 if (weight[0]+weight[1] == 0){
                     continue;
@@ -341,31 +351,32 @@ public class WorldMap {
 
                 // only compute movements from positive proportional weights.
                 if (weight[0] > 0 && weight[1] > 0) {
-                    dCorner = pop * Math.pow((weight[0]*weight[1])/(Math.abs(weight[0])+Math.abs(weight[1])),1.25);
+                    dCorner = pop * Math.pow((weight[0]*weight[1])/(Math.abs(weight[0])+Math.abs(weight[1])),1.25) * increment;
                 }
                 if (weight[0] > 0) {
-                    dLeftRight = pop * Math.pow(weight[0], 1.5);
+                    dLeftRight = pop * Math.pow(weight[0], 1.5) * increment;
                 }
                 if (weight[1] > 0) {
-                    dUpDown = pop * Math.pow(weight[1], 1.5);
+                    dUpDown = pop * Math.pow(weight[1], 1.5) * increment;
                 }
 
                 double dCurrent = -(dCorner+dLeftRight+dUpDown);
-
-                mapTiles[x][y].getInhabitants().put(MapConstants.TILE_INHABITANTS.ZOMBIE,
+                int  dirLR = (int) ((weight[0]/Math.abs(weight[0]))+.5);
+                int dirUD = (int) ((weight[1]/Math.abs(weight[1]))+.5);
+                mapTiles[x][y].addZombies(
                     mapTiles[x][y].getZombies() + dCurrent);
 
-                if (dLeftRight > 0 && x + 1 < mapTiles.length) {
-                    mapTiles[x+1][y].getInhabitants().put(MapConstants.TILE_INHABITANTS.ZOMBIE,
-                        mapTiles[x+1][y].getZombies() + dLeftRight);
+                if (dLeftRight > 0 && x + dirLR < mapTiles.length) {
+                    mapTiles[x+dirLR][y].addZombies(
+                        mapTiles[x+dirLR][y].getZombies() + dLeftRight);
                 }
-                if (dUpDown > 0 && y + 1 < mapTiles[x].length) {
-                    mapTiles[x][y+1].getInhabitants().put(MapConstants.TILE_INHABITANTS.ZOMBIE,
-                        mapTiles[x][y+1].getZombies() + dUpDown);
+                if (dUpDown > 0 && y + dirUD < mapTiles[x].length) {
+                    mapTiles[x][y+dirUD].addZombies(
+                        mapTiles[x][y+dirUD].getZombies() + dUpDown);
                 }
-                if (dCorner > 0 && x + 1 < mapTiles.length && y + 1 < mapTiles[x].length) {
-                    mapTiles[x+1][y+1].getInhabitants().put(MapConstants.TILE_INHABITANTS.ZOMBIE,
-                        mapTiles[x+1][y+1].getZombies() + dCorner);
+                if (dCorner > 0 && x + dirLR < mapTiles.length && y + dirUD < mapTiles[x].length) {
+                    mapTiles[x+dirLR][y+dirUD].addZombies(
+                        mapTiles[x+dirLR][y+dirUD].getZombies() + dCorner);
                 }
 
             }
@@ -393,18 +404,20 @@ public class WorldMap {
                     totalHuman += mapTiles[x][y].getHumans();
                     totalZombie += mapTiles[x][y].getZombies();
                     totalInfected += mapTiles[x][y].getTotalInfected();
-                    if (mapTiles[x][y].getHumans() < 0){
+                    if (mapTiles[x][y].getHumans() < 0 - GeneralConstants.NEGATIVE_POPULATION_TOLERANCE){
                         System.out.println("Negative humans at " + x + ", " + y);
+                        System.out.println("Humans:"+mapTiles[x][y].getHumans()+"    Zombies:"+mapTiles[x][y].getZombies()+"    Infected:"+mapTiles[x][y].getTotalInfected());
                         System.exit(1);
-                    } if (mapTiles[x][y].getZombies() < 0){
+                    } if (mapTiles[x][y].getZombies() < 0 - GeneralConstants.NEGATIVE_POPULATION_TOLERANCE){
                         System.out.println("Negative zombies at " + x + ", " + y);
+                        System.out.println("Humans:"+mapTiles[x][y].getHumans()+"    Zombies:"+mapTiles[x][y].getZombies()+"    Infected:"+mapTiles[x][y].getTotalInfected());
                         System.exit(1);
-                    } if (mapTiles[x][y].getTotalInfected() < 0){
+                    } if (mapTiles[x][y].getTotalInfected() < 0 - GeneralConstants.NEGATIVE_POPULATION_TOLERANCE){
                         System.out.println("Negative infected at " + x + ", " + y);
                         System.exit(1);
                     } if (mapTiles[x][y].getTotalInfected() > mapTiles[x][y].getHumans()){
                         System.out.println("More infected than humans at " + x + ", " + y);
-                        System.out.println("Humans:"+mapTiles[x][y].getHumans()+"    Infected"+mapTiles[x][y].getTotalInfected());
+                        System.out.println("Humans:"+mapTiles[x][y].getHumans()+"    Zombies:"+mapTiles[x][y].getZombies()+"    Infected:"+mapTiles[x][y].getTotalInfected());
                         System.exit(1);
                     }
                 }

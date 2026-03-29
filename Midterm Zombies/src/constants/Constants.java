@@ -10,6 +10,16 @@ public class Constants {
          * whether to print debug statements to the console, which can be used for performance testing and debugging
          */
         public static final boolean DEBUG = true;
+
+        /**
+         * the tolerance for considering a population negative
+         */
+        public static final double NEGATIVE_POPULATION_TOLERANCE = 0.05;
+
+        /**
+         * the radius within which zombie search for humans
+         */
+        public static final int ZOMBIE_WEIGHTING_RADIUS = 7;
     }
 
     public static class MapConstants {   
