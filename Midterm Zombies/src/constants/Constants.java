@@ -1,7 +1,6 @@
 package constants;
 import java.util.Map;
-
-import constants.Constants.MapConstants.TILE_BIOMES;
+import java.util.Random;
 import javafx.scene.paint.Color;
 
 public class Constants {
@@ -11,6 +10,8 @@ public class Constants {
          */
         public static final boolean DEBUG = true;
 
+        public static final Random RNG = new Random(0);
+        public static final boolean PRINT_STATEMENTS = false;
         /**
          * the tolerance for considering a population negative
          */
@@ -19,12 +20,12 @@ public class Constants {
         /**
          * the radius within which zombie search for humans
          */
-        public static int ZOMBIE_WEIGHTING_RADIUS = 13;
+        public static int ZOMBIE_WEIGHTING_RADIUS = 20;
     }
 
     public static class MapConstants {   
 
-        public static final double INIT_INFECTED = 5000;
+        public static final double INIT_INFECTED = 500;
         /**
          * Enumeration of possible biome types for tiles in the world map.
          */
@@ -71,9 +72,9 @@ public class Constants {
                 TILE_BIOMES.SWAMP, Color.BURLYWOOD);
         
         public static final Map<TILE_INHABITANTS, Double> INHABITANT_COLOR_WEIGHTING = Map.of(
-                TILE_INHABITANTS.HUMAN, 50.0,
-                TILE_INHABITANTS.ZOMBIE, 50.0,
-                TILE_INHABITANTS.INFECTED, 50.0);
+                TILE_INHABITANTS.HUMAN, 5.0,
+                TILE_INHABITANTS.ZOMBIE, 5.0,
+                TILE_INHABITANTS.INFECTED, 5.0);
         
         public static final Map<TILE_BIOMES, Double> BIOME_SPREAD_COEFFICIENT = Map.of(
                 TILE_BIOMES.WATER, 0.0,
@@ -110,7 +111,7 @@ public class Constants {
         /**
          * The scale factor for rendering the map (currently unused).
          */
-        public static final int MAP_SCALE = 8;
+        public static final int MAP_SCALE = 64;
 
         /**
          * The width of the world map in tiles.
@@ -170,7 +171,7 @@ public class Constants {
          * @return a 2D array of coordinates in the form of {{x1, y1}, {x2, y2}, ...}
          */
         public static int[][] getDrunkardsWalkShape(int x, int y) {
-            int rotation = (int) (Math.random() * 4);
+            int rotation = (int) (GeneralConstants.RNG.nextDouble() * 4);
             int[][] result = new int[base_drunkard_shape.length][2];
             for (int i = 0; i < base_drunkard_shape.length; i++) {
                 int[] shape = new int[] { base_drunkard_shape[i][0], base_drunkard_shape[i][1] };
@@ -202,7 +203,8 @@ public class Constants {
         /**
          * what percentage of interactions between humans and zombies result in a infected human, from 0 to 1
          */
-        public static final double CSI = 0.7;
+        public static final double CSI = 0.1;
+        public static final double CZI_INCREMENT = 0.1;
 
         /**
          * the base increment for periodic updates
@@ -212,7 +214,8 @@ public class Constants {
         /**
          * what percentage of interactions between zombies and humans result in a dead zombie, from 0 to 1
          */
-        public static final double CZD = 0.5;
+        public static  double CZD = 0.1;
+        public static final double CZD_INCREMENT = 0.1;
 
         /**
          * what percentage of humans produce 1 child, from 0 to 1, per day
@@ -222,12 +225,12 @@ public class Constants {
         /**
          * what percent of the survivors die each day from non-zombie related causes, from 0 to 1
          */
-        public static final double CSD = .05;//160000/8000000000.0; // 160k deaths per day, divided by 8 billion people
+        public static final double CSD = 160000/8000000000.0; // 160k deaths per day, divided by 8 billion people
 
         /**
          * the mean time it takes for an infected human to turn into a zombie, in days
          */
-        public static final int MEAN_TIME_FROM_INFECTION_TO_ZOMBIE = 3; // in days
+        public static final int MEAN_TIME_FROM_INFECTION_TO_ZOMBIE = 14; // in days
 
         /**
          * the standard deviation of the time it takes for an infected human to turn into a zombie, in days
@@ -254,29 +257,4 @@ public class Constants {
          */
         public static final double ZOMBIE_SPREAD_WEIGHT = 0.5;
     }
-
-    public static class PopulationConstants {
-        /**
-         * the minimum amount of Zombies that count a tile as occupied(eg if this is set to 10, and there are 15 zombies on a tile, the zombies will gain the food from this tile)
-         */
-        public static final double ZOMBIE_POPULATION_MIN_CAPACITY = 100;
-
-        /**
-         * the average number of calories consumed per zombie per day
-         */
-        public static final int ZOMBIE_CALORIES_PER_DAY = 500;
-
-        /**
-         * the percentage of calories that can be obtained from consuming a human
-         */
-        public static final int CALORIES_FROM_HUMAN = 125000;
-
-        /**
-         * the amount of calories that zombies can harvest/consume from each biome type, per day
-         */
-        public static final Map<TILE_BIOMES,Integer> ZOMBIE_HARVESTABLE_CALORIES = Map.of(
-            TILE_BIOMES.PLAINS, 100000,
-            TILE_BIOMES.MOUNTAINS, 50000,
-            TILE_BIOMES.SWAMP, 75000);
-        }
 }

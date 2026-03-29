@@ -17,11 +17,13 @@ public class Tile {
 
     public void addInfectedPeople(double amt) {
         if (Double.isNaN(amt) || Double.isInfinite(amt) || amt < 0){
-            System.out.println("added "+amt+" infected");
+            if (GeneralConstants.PRINT_STATEMENTS) {
+                System.out.println("added "+amt+" infected");
+            }
             System.exit(1);
         }
         for (int i = 0; i < SpreadConstants.INFECTION_ITERATIONS; i++) {
-            infectedPopulations[(int) (SpreadConstants.MEAN_TIME_FROM_INFECTION_TO_ZOMBIE+Math.pow(Math.random()*Math.pow(SpreadConstants.STDEV_TIME_FROM_INFECTION_TO_ZOMBIE,2),.5))] += amt / SpreadConstants.INFECTION_ITERATIONS;
+            infectedPopulations[(int) (SpreadConstants.MEAN_TIME_FROM_INFECTION_TO_ZOMBIE+Math.pow(GeneralConstants.RNG.nextDouble()*Math.pow(SpreadConstants.STDEV_TIME_FROM_INFECTION_TO_ZOMBIE,2),.5))] += amt / SpreadConstants.INFECTION_ITERATIONS;
         }
     }
 
@@ -29,10 +31,14 @@ public class Tile {
         
         double newZombies = infectedPopulations[0];
         if (Double.isNaN(newZombies)){
-            System.out.println("added NAN newZombies");
+            if (GeneralConstants.PRINT_STATEMENTS) {
+                System.out.println("added NAN newZombies");
+            }
             System.exit(1);
         } else if (newZombies < 0){
-            System.out.println("Negative newZombies at"+coordinates[0]+","+coordinates[1]);
+            if (GeneralConstants.PRINT_STATEMENTS) {
+                System.out.println("Negative newZombies at"+coordinates[0]+","+coordinates[1]);
+            }
             System.exit(1);
         }
         for (int i = 1; i < infectedPopulations.length; i++) {
@@ -41,7 +47,13 @@ public class Tile {
         infectedPopulations[infectedPopulations.length-1] = 0;
 
         addZombies(newZombies);
-        addHumans(-newZombies);
+        // Conversion removes these humans from total population, but infected queue
+        // has already been updated by shifting infectedPopulations.
+        double newHumanCount = getHumans() - newZombies;
+        if (newHumanCount < 0) {
+            newHumanCount = 0;
+        }
+        inhabitants.put(TILE_INHABITANTS.HUMAN, newHumanCount);
         // System.out.println("h:"+inhabitants.get(TILE_INHABITANTS.HUMAN)+"     z:"+inhabitants.get(TILE_INHABITANTS.ZOMBIE));
     }
 
@@ -59,7 +71,7 @@ public class Tile {
             MapConstants.TILE_INHABITANTS.HUMAN, 0.0,
             MapConstants.TILE_INHABITANTS.ZOMBIE, 0.0));
         
-        infectedPopulations = new double[SpreadConstants.INFECTION_ITERATIONS+SpreadConstants.STDEV_TIME_FROM_INFECTION_TO_ZOMBIE];
+        infectedPopulations = new double[SpreadConstants.MEAN_TIME_FROM_INFECTION_TO_ZOMBIE+SpreadConstants.STDEV_TIME_FROM_INFECTION_TO_ZOMBIE];
     }
 
     /**
@@ -88,7 +100,7 @@ public class Tile {
     public void setInfrastructure(MapConstants.TILE_INFRASTRUCTURE infrastructure) {
         this.infrastructure = infrastructure;
         if (infrastructure == TILE_INFRASTRUCTURE.CITY){
-            inhabitants.put(TILE_INHABITANTS.HUMAN, 500.0);
+            inhabitants.put(TILE_INHABITANTS.HUMAN, 5000.0);
         }
     }
 
@@ -129,7 +141,9 @@ public class Tile {
 
     public void addHumans(double amt){
         if (!Double.isFinite(amt)){
-            System.out.println("added invalid Humans: " + amt);
+            if (GeneralConstants.PRINT_STATEMENTS) {
+                System.out.println("added invalid Humans: " + amt);
+            }
             System.exit(1);
         }
         if (amt > 0){
@@ -137,36 +151,32 @@ public class Tile {
         } else if (amt < 0){
             double totalInfected = getTotalInfected();
             double currentHumans = getHumans();
-            if (currentHumans - totalInfected < 0){
-                trimInfected((currentHumans - totalInfected));
+            double removal = -amt;
+
+            if (removal > currentHumans) {
+                removal = currentHumans;
             }
-            if (totalInfected > 0) {
-                // Scale human removal proportionally across infected and uninfected
-                double proportionInfected = currentHumans > 0 ? totalInfected / currentHumans : 1.0;
-                proportionInfected = Math.min(1.0, Math.max(0.0, proportionInfected));
 
-                double humanDelta = amt / (proportionInfected > 0 ? proportionInfected : 1.0);
-                inhabitants.put(TILE_INHABITANTS.HUMAN, inhabitants.get(TILE_INHABITANTS.HUMAN)+humanDelta);
-
-                for (int i = 0; i < infectedPopulations.length; i++){
-                    double proportionOfInfected = totalInfected > 0 ? infectedPopulations[i] / totalInfected : 0.0;
-                    infectedPopulations[i] += amt * proportionInfected * proportionOfInfected;
-                    if (!Double.isFinite(infectedPopulations[i]) || infectedPopulations[i] < 0){
-                        infectedPopulations[i] = 0.0;
-                    }
+            if (totalInfected > 0 && currentHumans > 0) {
+                // Remove infected proportionally for random death/mortality, but leave
+                // conversion logic in progressInfection to handle exact infected -> zombie flow.
+                double infectedRemoval = Math.min(totalInfected, removal * (totalInfected / currentHumans));
+                if (infectedRemoval > 0) {
+                    trimInfected(infectedRemoval);
                 }
-            } else {
-                // No infected, just remove from human count
-                inhabitants.put(TILE_INHABITANTS.HUMAN, inhabitants.get(TILE_INHABITANTS.HUMAN)+amt);
             }
 
+            double newHumanCount = Math.max(0.0, currentHumans - removal);
+            inhabitants.put(TILE_INHABITANTS.HUMAN, newHumanCount);
         }
         getTotalInfected();
     }
 
     public void addZombies(double amt){
         if (!Double.isFinite(amt)){
-            System.out.println("added invalid Zombies: " + amt);
+            if (GeneralConstants.PRINT_STATEMENTS) {
+                System.out.println("added invalid Zombies: " + amt);
+            }
             System.exit(1);
         }
 
@@ -188,7 +198,9 @@ public class Tile {
         for (int i = 0; i < infectedPopulations.length; i++){
             double infected = infectedPopulations[i];
             if (Double.isNaN(infected) || infected < 0 || Double.isInfinite(infected)){
-                System.out.println(infected+" infected population at "+coordinates[0]+","+coordinates[1]+" index "+i);
+                if (GeneralConstants.PRINT_STATEMENTS) {
+                    System.out.println(infected+" infected population at "+coordinates[0]+","+coordinates[1]+" index "+i);
+                }
                 System.exit(1);
             }
             totalInfected += infected;
@@ -197,8 +209,12 @@ public class Tile {
             if (getHumans()-totalInfected < GeneralConstants.NEGATIVE_POPULATION_TOLERANCE){
                 inhabitants.put(TILE_INHABITANTS.HUMAN, totalInfected);
             } else {
-                System.out.println(getHumans());
-                System.out.println(totalInfected+" total infected population at"+coordinates[0]+","+coordinates[1]);
+                if (GeneralConstants.PRINT_STATEMENTS) {
+                    System.out.println(getHumans());
+                }
+                if (GeneralConstants.PRINT_STATEMENTS) {
+                    System.out.println(totalInfected+" total infected population at"+coordinates[0]+","+coordinates[1]);
+                }
                 System.exit(1);
             }
         }
@@ -216,7 +232,9 @@ public class Tile {
      */
     public void trimInfected(double amount) {
         if (Double.isNaN(amount) || Double.isInfinite(amount)) {
-            System.out.println("Invalid amount to trim infected."+amount);
+            if (GeneralConstants.PRINT_STATEMENTS) {
+                System.out.println("Invalid amount to trim infected."+amount);
+            }
             System.exit(1);
         }
 
@@ -225,7 +243,9 @@ public class Tile {
             for (int i = 0; i < infectedPopulations.length; i++) {
                 infectedPopulations[i] = 0.0;
             }
-            System.out.println("No infected individuals to trim.");
+            if (GeneralConstants.PRINT_STATEMENTS) {
+                System.out.println("No infected individuals to trim.");
+            }
             return;
         }
 

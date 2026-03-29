@@ -7,6 +7,8 @@ import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Rectangle;
+import javafx.scene.text.Font;
+import javafx.scene.text.Text;
 import javafx.scene.Group;
 import javafx.scene.Scene;
 import javafx.scene.paint.Color;
@@ -20,7 +22,7 @@ import javafx.stage.Stage;
 public class GUI extends Application {
     private static Rectangle[][] biomePixelMap;
     private static Circle[][] inhabitantPixelMap;
-    
+    private static Text[] labels;
     private static Stage mainStage;
     
     private ScheduledExecutorService executor;
@@ -49,6 +51,7 @@ public class GUI extends Application {
     public void start(Stage stage) throws Exception {
         biomePixelMap = new Rectangle[MapConstants.MAP_WIDTH][MapConstants.MAP_HEIGHT];
         inhabitantPixelMap = new Circle[MapConstants.MAP_WIDTH][MapConstants.MAP_HEIGHT];
+        labels = new Text[3];
         mainStage = stage;
         buildMap(stage);
 
@@ -79,7 +82,7 @@ public class GUI extends Application {
 
         for (int x = 0; x < tileMap.length; x++) {
             for (int y = 0; y < tileMap[x].length; y++) {
-                Circle pixel = new Circle(x * MapConstants.MAP_SCALE, y * MapConstants.MAP_SCALE, MapConstants.MAP_SCALE*.5);
+                Circle pixel = new Circle(x * MapConstants.MAP_SCALE + MapConstants.MAP_SCALE * 0.5, y * MapConstants.MAP_SCALE + MapConstants.MAP_SCALE * 0.5, MapConstants.MAP_SCALE * 0.5);
                 double humanAmt = tileMap[x][y].getHumans();
                 double infectedAmt = tileMap[x][y].getTotalInfected();
                 humanAmt -= infectedAmt;
@@ -101,6 +104,21 @@ public class GUI extends Application {
                 inhabitantPixelMap[x][y] = pixel;
             }
         }
+        Text humanCount = new Text(0, 25, "Humans:");
+        humanCount.setFont(new Font(20));
+        Text zombieCount = new Text(0, 50, "Zombies:");
+        zombieCount.setFont(new Font(20));
+        Text infectedCount = new Text(0, 75, "Infected:");
+        infectedCount.setFont(new Font(20));
+
+        labels[0] = humanCount;
+        labels[1] = zombieCount;
+        labels[2] = infectedCount;
+
+        base.getChildren().add(humanCount);
+        base.getChildren().add(zombieCount);
+        base.getChildren().add(infectedCount);
+
         stage.setScene(scene);
         stage.setWidth(MapConstants.MAP_WIDTH * MapConstants.MAP_SCALE);
         stage.setHeight(MapConstants.MAP_HEIGHT * MapConstants.MAP_SCALE);
@@ -110,13 +128,22 @@ public class GUI extends Application {
     public static void updateMap(){
 
         if (GeneralConstants.DEBUG){
-            System.out.println("Updating map");
+            if (GeneralConstants.PRINT_STATEMENTS) {
+                System.out.println("Updating map");
+            }
         }
         double startTime = System.currentTimeMillis();
         Tile[][] tileMap = App.worldMap.getTiles();
-
+        double totalHumans = 0;
+        double totalZombies = 0;
+        double totalInfected = 0;
         for (int x = 0; x < tileMap.length; x++) {
             for (int y = 0; y < tileMap[x].length; y++) {
+
+                totalHumans += tileMap[x][y].getHumans();
+                totalZombies += tileMap[x][y].getZombies();
+                totalInfected += tileMap[x][y].getTotalInfected();
+
                 Circle pixel = inhabitantPixelMap[x][y];
                 double humanAmt = tileMap[x][y].getHumans();
                 double infectedAmt = tileMap[x][y].getTotalInfected();
@@ -139,7 +166,19 @@ public class GUI extends Application {
                 // inhabitantPixelMap[x][y] = pixel;
             }
         }
-        System.out.println("GUI update took "+(System.currentTimeMillis() - startTime)+"ms");
+        if (GeneralConstants.PRINT_STATEMENTS) {
+            System.out.println("GUI update took "+(System.currentTimeMillis() - startTime)+"ms");
+        }
+        labels[0].setText("Humans: "+(int)totalHumans);
+        labels[1].setText("Zombies: "+(int)totalZombies);
+        labels[2].setText("Infected: "+(int)totalInfected);
+        if (totalHumans - totalInfected <= 1){
+            System.out.println("Zombies win!");
+            System.exit(0);
+        } else if (totalZombies+totalInfected <= 1){
+            System.out.println("Humans win!");
+            System.exit(0);
+        }
         // mainStage.setScene(scene);
         
     }
