@@ -25,7 +25,7 @@ public class GUI extends Application {
     private static Text[] labels;
     private static Stage mainStage;
     
-    private ScheduledExecutorService executor;
+    private static ScheduledExecutorService executor;
 
     /**
      * A Fake main function for to trick javaFX, is called by the real main function in App.java
@@ -62,7 +62,7 @@ public class GUI extends Application {
         }, 0, 10, TimeUnit.MILLISECONDS);
     }
 
-    private static void buildMap(Stage stage) throws Exception{
+    private void buildMap(Stage stage) throws Exception{
         Tile[][] tileMap = App.worldMap.getTiles();
         
         Group base = new Group();
@@ -125,7 +125,7 @@ public class GUI extends Application {
         stage.show();
     }
 
-    public static void updateMap(){
+    public void updateMap(){
 
         if (GeneralConstants.DEBUG){
             if (GeneralConstants.PRINT_STATEMENTS) {
@@ -174,10 +174,14 @@ public class GUI extends Application {
         labels[2].setText("Infected: "+(int)totalInfected);
         if (totalHumans - totalInfected <= 1){
             System.out.println("Zombies win!");
-            System.exit(0);
+            App.logResults(1, SpreadConstants.CZD, SpreadConstants.CSI, MapConstants.INIT_INFECTED,0);
+            Platform.exit();
+            executor.shutdownNow();
         } else if (totalZombies+totalInfected <= 1){
             System.out.println("Humans win!");
-            System.exit(0);
+            App.logResults(0, SpreadConstants.CZD, SpreadConstants.CSI, MapConstants.INIT_INFECTED,0);
+            Platform.exit();
+            executor.shutdownNow();
         }
         // mainStage.setScene(scene);
         

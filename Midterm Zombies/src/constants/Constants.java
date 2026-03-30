@@ -9,8 +9,8 @@ public class Constants {
          * whether to print debug statements to the console, which can be used for performance testing and debugging
          */
         public static final boolean DEBUG = true;
-
-        public static final Random RNG = new Random(0);
+        public static final boolean DEBUG_MAP = true;
+        public static Random RNG = new Random(0);
         public static final boolean PRINT_STATEMENTS = false;
         /**
          * the tolerance for considering a population negative
@@ -25,7 +25,9 @@ public class Constants {
 
     public static class MapConstants {   
 
-        public static final double INIT_INFECTED = 500;
+        public static  double INIT_INFECTED = 500;
+        public static final double INIT_INFECTED_INCREMENT = 500;
+
         /**
          * Enumeration of possible biome types for tiles in the world map.
          */
@@ -203,8 +205,8 @@ public class Constants {
         /**
          * what percentage of interactions between humans and zombies result in a infected human, from 0 to 1
          */
-        public static final double CSI = 0.1;
-        public static final double CZI_INCREMENT = 0.1;
+        public static  double CSI = 0.1;
+        public static final double CSI_INCREMENT = 0.1;
 
         /**
          * the base increment for periodic updates

@@ -1,5 +1,7 @@
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
+
 import constants.Constants.*;
 import constants.Constants.MapConstants.TILE_INFRASTRUCTURE;
 import constants.Constants.MapConstants.TILE_INHABITANTS;
@@ -12,7 +14,7 @@ public class Tile {
     private double[] infectedPopulations;
 
     private MapConstants.TILE_BIOMES biome;
-
+    private Random RNG;
     private MapConstants.TILE_INFRASTRUCTURE infrastructure = null;
 
     public void addInfectedPeople(double amt) {
@@ -23,10 +25,9 @@ public class Tile {
             System.exit(1);
         }
         for (int i = 0; i < SpreadConstants.INFECTION_ITERATIONS; i++) {
-            infectedPopulations[(int) (SpreadConstants.MEAN_TIME_FROM_INFECTION_TO_ZOMBIE+Math.pow(GeneralConstants.RNG.nextDouble()*Math.pow(SpreadConstants.STDEV_TIME_FROM_INFECTION_TO_ZOMBIE,2),.5))] += amt / SpreadConstants.INFECTION_ITERATIONS;
+            infectedPopulations[(int) (SpreadConstants.MEAN_TIME_FROM_INFECTION_TO_ZOMBIE+Math.pow(RNG.nextDouble()*Math.pow(SpreadConstants.STDEV_TIME_FROM_INFECTION_TO_ZOMBIE,2),.5))] += amt / SpreadConstants.INFECTION_ITERATIONS;
         }
     }
-
     public void progressInfection() {
         
         double newZombies = infectedPopulations[0];
@@ -63,9 +64,10 @@ public class Tile {
      *
      * @param biome the biome type of this tile
      */
-    public Tile(MapConstants.TILE_BIOMES biome, int xCoordinate, int yCoordinate) {
+    public Tile(MapConstants.TILE_BIOMES biome, int xCoordinate, int yCoordinate, Random rng) {
         this.biome = biome;
         this.coordinates = new int[]{xCoordinate, yCoordinate};
+        this.RNG = rng;
 
         inhabitants = new HashMap<MapConstants.TILE_INHABITANTS, Double>(Map.of(
             MapConstants.TILE_INHABITANTS.HUMAN, 0.0,

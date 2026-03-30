@@ -3,7 +3,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.DoubleBinaryOperator;
-
+import java.util.Random;
 import javax.swing.plaf.metal.MetalComboBoxUI.MetalPropertyChangeListener;
 
 import constants.Constants.*;
@@ -18,6 +18,10 @@ public class WorldMap {
     private Tile[][] mapTiles;
     private TILE_INFRASTRUCTURE[][] infrastructureMap;
 
+    private double CSI;
+    private double CZD;
+    private double INIT_INFECTED;
+    private Random RNG;
     /**
      * Constructs a new WorldMap with the specified width and height.
      * The map is automatically generated upon creation.
@@ -25,7 +29,11 @@ public class WorldMap {
      * @param width the width of the map in tiles
      * @param height the height of the map in tiles
      */
-    public WorldMap(int width, int height) {
+    public WorldMap(int width, int height, Random rng, double CZD, double CSI, double INIT_INFECTED) {
+        this.CZD = CZD;
+        this.CSI = CSI;
+        this.INIT_INFECTED = INIT_INFECTED;
+        this.RNG = rng;
         generateMap(width, height);
     }
 
@@ -63,7 +71,7 @@ public class WorldMap {
         //apply the biomes to the tile map
         for (int x = 0; x < mapTiles.length; x++) {
             for (int y = 0; y < mapTiles[x].length; y++) {
-                mapTiles[x][y] = new Tile(mapBiomes[x][y], x, y);
+                mapTiles[x][y] = new Tile(mapBiomes[x][y], x, y, RNG);
             }
         }
 
@@ -114,7 +122,7 @@ public class WorldMap {
      * @return an array containing the x and y coordinates
      */
     private int[] randomCoordinate() {
-        return new int[] { (int) (GeneralConstants.RNG.nextDouble() * MapConstants.MAP_WIDTH), (int) (GeneralConstants.RNG.nextDouble() * MapConstants.MAP_HEIGHT) };
+        return new int[] { (int) (RNG.nextDouble() * MapConstants.MAP_WIDTH), (int) (RNG.nextDouble() * MapConstants.MAP_HEIGHT) };
     }
 
     /**
@@ -130,8 +138,8 @@ public class WorldMap {
         while (true) {
             int[] coord = randomCoordinate();
             if (mapTiles[coord[0]][coord[1]].getBiome() != MapConstants.TILE_BIOMES.WATER){
-                mapTiles[coord[0]][coord[1]].addHumans(MapConstants.INIT_INFECTED);
-                mapTiles[coord[0]][coord[1]].addInfectedPeople(MapConstants.INIT_INFECTED);
+                mapTiles[coord[0]][coord[1]].addHumans(INIT_INFECTED);
+                mapTiles[coord[0]][coord[1]].addInfectedPeople(INIT_INFECTED);
                 if (GeneralConstants.PRINT_STATEMENTS) {
                     System.out.println("infection started at "+coord[0]+","+coord[1]);
                 }
@@ -178,7 +186,7 @@ public class WorldMap {
             }
         }
 
-        double roll = GeneralConstants.RNG.nextDouble() * total;
+        double roll = RNG.nextDouble() * total;
         for (MapConstants.TILE_INFRASTRUCTURE infrastructure : MapConstants.TILE_INFRASTRUCTURE.values()) {
             if (isValid.get(infrastructure)) {
                 if (roll < MapConstants.INFRASTRUCTURE_SPAWN_RATES.get(infrastructure)) {
@@ -221,7 +229,7 @@ public class WorldMap {
         if (humanPopulation + zombiePopulation <= 0 || zombiePopulation <= 0){
             return 0;
         }
-        deltaZombie -= SpreadConstants.CZD * humanPopulation * zombiePopulation / (humanPopulation + zombiePopulation); //zombies killed by survivors
+        deltaZombie -= CZD * humanPopulation * zombiePopulation / (humanPopulation + zombiePopulation); //zombies killed by survivors
 
         return deltaZombie;
     }
@@ -231,7 +239,7 @@ public class WorldMap {
         if (humanPopulation + zombiePopulation == 0){
             return 0;
         }
-        newInfected += SpreadConstants.CSI * humanPopulation * zombiePopulation / (humanPopulation + zombiePopulation); //humans infected by zombies
+        newInfected += CSI * humanPopulation * zombiePopulation / (humanPopulation + zombiePopulation); //humans infected by zombies
         if (Double.isNaN(newInfected)){
             if (GeneralConstants.PRINT_STATEMENTS) {
                 System.out.println("added NAN newInfected in the compute function");
@@ -271,8 +279,8 @@ public class WorldMap {
                 weighting[1] += humanPopulation/dy / Math.sqrt(Math.pow(dx, 2)+Math.pow(dy, 2));
                 weighting[0] += .5 * zombiePopulation/dx / Math.sqrt(Math.pow(dx, 2)+Math.pow(dy, 2));
                 weighting[1] += .5 * zombiePopulation/dy / Math.sqrt(Math.pow(dx, 2)+Math.pow(dy, 2));
-                weighting[0] += 1000 * (GeneralConstants.RNG.nextDouble() - .5);
-                weighting[1] += 1000 * (GeneralConstants.RNG.nextDouble() - .5);
+                weighting[0] += 1000 * (RNG.nextDouble() - .5);
+                weighting[1] += 1000 * (RNG.nextDouble() - .5);
                 
             }
         }
@@ -322,7 +330,7 @@ public class WorldMap {
                 double currentHumans = mapTiles[x][y].getHumans();
                 double currentZombies = mapTiles[x][y].getZombies();
                 double currentInfected = mapTiles[x][y].getTotalInfected();
-                if (currentHumans< deltaHuman * increment){
+                if (currentHumans< -deltaHuman * increment){
                     if (GeneralConstants.DEBUG){
                     if (GeneralConstants.PRINT_STATEMENTS) {
                         System.out.println("IncrementProtection detected an error with the humans at"+x+","+y+", new increment is "+-currentHumans/deltaHuman);
@@ -330,7 +338,7 @@ public class WorldMap {
                     System.out.println("Humans currPop:"+currentHumans+"   deltaPop:"+deltaHuman);}
                     increment = -currentHumans / deltaHuman;
                 }
-                if (currentZombies < deltaZombie * increment){
+                if (currentZombies < -deltaZombie * increment){
                     if (GeneralConstants.DEBUG){
                     if (GeneralConstants.PRINT_STATEMENTS) {
                         System.out.println("IncrementProtection detected an error with the zombies at"+x+","+y+", new increment is "+-currentZombies/deltaZombie);
@@ -536,4 +544,62 @@ public class WorldMap {
         }
         }
     }
+
+    /**
+         * The base shape template used for the drunkard's walk algorithm.
+         * Represents relative coordinates from a starting point to form biome clusters.
+         */
+        public final int[][] base_drunkard_shape = new int[][] {
+                new int[] { 0, 0 },
+                new int[] { 1, 0 },
+                new int[] { -1, 2 },
+                new int[] { 0, 2 },
+                new int[] { 1, 2 },
+                new int[] { 2, 3 },
+                new int[] { 1, 1 },
+                new int[] { 0, 1 },
+                new int[] { -1, 1 },
+                new int[] { -1, 0 },
+                new int[] { -1, -1 },
+                new int[] { 0, -1 },
+                new int[] { 1, -1 }
+        };
+
+        /**
+         * Generates a 2D array of coordinates representing a drunkard's walk shape.
+         * The shape is created by simulating a random walk starting from the center of
+         * the map.
+         * 
+         * @param x the starting x-coordinate of the walk
+         * @param y the starting y-coordinate of the walk
+         * 
+         * @return a 2D array of coordinates in the form of {{x1, y1}, {x2, y2}, ...}
+         */
+        public int[][] getDrunkardsWalkShape(int x, int y) {
+            int rotation = (int) (RNG.nextDouble() * 4);
+            int[][] result = new int[base_drunkard_shape.length][2];
+            for (int i = 0; i < base_drunkard_shape.length; i++) {
+                int[] shape = new int[] { base_drunkard_shape[i][0], base_drunkard_shape[i][1] };
+                for (int foo = 0; foo < rotation; foo++) {
+                    int temp = shape[0];
+                    shape[0] = shape[1];
+                    shape[1] = -temp;
+                }
+                result[i][0] = x + shape[0];
+                result[i][1] = y + shape[1];
+
+                if (result[i][0] < 0) {
+                    result[i][0] = 0;
+                } else if (result[i][0] >= mapTiles.length) {
+                    result[i][0] = mapTiles.length - 1;
+                }
+
+                if (result[i][1] < 0) {
+                    result[i][1] = 0;
+                } else if (result[i][1] >= mapTiles[0].length) {
+                    result[i][1] = mapTiles[0].length - 1;
+                }
+            }
+            return result;
+        }
 }

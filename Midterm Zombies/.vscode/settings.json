@@ -15,5 +15,6 @@
         "/home/rlawyer/Downloads/javafx-sdk-25.0.2/lib/javafx.controls.jar",
         "/home/rlawyer/Downloads/javafx-sdk-25.0.2/lib/javafx.base.jar",
         "/home/rlawyer/Downloads/javafx-sdk-25.0.2/lib/javafx-swt.jar"
-    ]
+    ],
+    "java.debug.settings.onBuildFailureProceed": true
 }
