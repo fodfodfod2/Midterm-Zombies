@@ -9,7 +9,7 @@ public class Constants {
          * whether to print debug statements to the console, which can be used for performance testing and debugging
          */
         public static final boolean DEBUG = true;
-        public static final boolean DEBUG_MAP = true;
+        public static final boolean DEBUG_MAP = false;
         public static Random RNG = new Random(0);
         public static final boolean PRINT_STATEMENTS = false;
         /**
