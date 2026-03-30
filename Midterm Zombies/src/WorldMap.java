@@ -1,14 +1,10 @@
-import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.DoubleBinaryOperator;
 import java.util.Random;
-import javax.swing.plaf.metal.MetalComboBoxUI.MetalPropertyChangeListener;
 
 import constants.Constants.*;
 import constants.Constants.MapConstants.TILE_INFRASTRUCTURE;
-import constants.Constants.MapConstants.TILE_INHABITANTS;
 
 /**
  * Represents the world map composed of tiles with different biomes and inhabitants.
@@ -106,7 +102,7 @@ public class WorldMap {
                     && !(biome == MapConstants.TILE_BIOMES.PLAINS && i < MapConstants.MAX_GROUPS.get(biome))) { // if the biome is plains and its less than max groups, valid
                 coord = randomCoordinate();
             }
-            int[][] shape = MapConstants.getDrunkardsWalkShape(coord[0], coord[1]);
+            int[][] shape = this.getDrunkardsWalkShape(coord[0], coord[1]);
             for (int j = 0; j < shape.length; j++) {
                 mapBiomes[shape[j][0]][shape[j][1]] = biome;
             }

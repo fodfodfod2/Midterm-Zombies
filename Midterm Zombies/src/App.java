@@ -6,16 +6,15 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.awt.Toolkit;
 import java.awt.datatransfer.Clipboard;
-import java.io.PrintWriter;
 
 
 public class App {
     public static WorldMap worldMap;
     public static String resultString = "trialNum,winner,CZD,CSI,INIT_INFECTED,";
     public static int trialNum = 0;
-    public static ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(13);
+    public static ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(14);
     
-    private static int simScale = 5;
+    private static double simScale = 2;
     private static ArrayList<Future<String>> resulFutures = new ArrayList<Future<String>>();
     public static void main(String[] args) throws Exception {
         if (GeneralConstants.DEBUG_MAP){
@@ -23,9 +22,9 @@ public class App {
             worldMap = new WorldMap(MapConstants.MAP_WIDTH, MapConstants.MAP_HEIGHT, GeneralConstants.RNG, SpreadConstants.CZD, SpreadConstants.CSI, MapConstants.INIT_INFECTED);
             GUI.main(args, true);
         }else{
-        for (int CZD_IDX = 0; CZD_IDX < 10/simScale; CZD_IDX++) {
-            for (int CSI_IDX = 0; CSI_IDX < 10/simScale; CSI_IDX++){
-                for (int INIT_INFECTED_IDX = 0; INIT_INFECTED_IDX < 10/simScale; INIT_INFECTED_IDX++){
+        for (int CZD_IDX = 0; CZD_IDX < (int) 10/simScale; CZD_IDX++) {
+            for (int CSI_IDX = 0; CSI_IDX < (int) 10/simScale; CSI_IDX++){
+                for (int INIT_INFECTED_IDX = 0; INIT_INFECTED_IDX < (int) 10/simScale; INIT_INFECTED_IDX++){
                     double czd = SpreadConstants.CZD+SpreadConstants.CZD_INCREMENT*CZD_IDX*simScale;
                     double csi = SpreadConstants.CSI+SpreadConstants.CSI_INCREMENT*CSI_IDX*simScale;
                     double initInfected = MapConstants.INIT_INFECTED+MapConstants.INIT_INFECTED_INCREMENT*INIT_INFECTED_IDX*simScale;
@@ -70,6 +69,7 @@ public class App {
         }
         System.out.println("All simulations started, waiting for results...");
         executor.shutdown();
+        System.out.println("executor shutdown, waiting for termination...");
         System.out.println("terminated:" + executor.awaitTermination(300, java.util.concurrent.TimeUnit.MINUTES));
         for (Future<String> future : resulFutures){
             logResults(future.get());
@@ -104,6 +104,12 @@ public class App {
                     totalInfected += tile.getTotalInfected();
                 }
             }
+            if (totalZombies > 20000000){
+                System.out.println("Aborting simulation "+tNum+" due to overpopulation of zombies");
+                return "\n"+tNum+","+2+","+CZD+","+CSI+","+INIT_INFECTED+",";
+            }
+            // System.out.println("Simulation "+tNum+" update: Humans="+(int)totalHumans+", Zombies="+(int)totalZombies+", Infected="+(int)totalInfected);
+            // System.out.println("Simulation "+tNum+" update: CZD="+CZD+", CSI="+CSI+", Infected="+INIT_INFECTED);
             if (totalHumans - totalInfected <= 1){
                 System.out.println("Zombies win! in simulation "+tNum);
                 // App.logResults(1, CZD, CSI,INIT_INFECTED,tNum);

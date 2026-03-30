@@ -59,7 +59,7 @@ public class Constants {
         public static final Map<TILE_INFRASTRUCTURE, Integer> INFRASTRUCTURE_SPAWN_RATES = Map.of(
             TILE_INFRASTRUCTURE.PORT, 10,
             TILE_INFRASTRUCTURE.AIRPORT, 10,
-            TILE_INFRASTRUCTURE.CITY, 5,
+            TILE_INFRASTRUCTURE.CITY, 20,
             TILE_INFRASTRUCTURE.EMPTY, 1000);
             
         
@@ -113,7 +113,7 @@ public class Constants {
         /**
          * The scale factor for rendering the map (currently unused).
          */
-        public static final int MAP_SCALE = 64;
+        public static final int MAP_SCALE = 96;
 
         /**
          * The width of the world map in tiles.
