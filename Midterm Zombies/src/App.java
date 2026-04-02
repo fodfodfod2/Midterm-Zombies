@@ -12,7 +12,7 @@ public class App {
     public static WorldMap worldMap;
     public static String resultString = "trialNum,winner,CZD,CSI,INIT_INFECTED,";
     public static int trialNum = 0;
-    public static ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(14);
+    public static ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(8);
     
     private static double simScale = 2;
     private static ArrayList<Future<String>> resulFutures = new ArrayList<Future<String>>();
@@ -24,115 +24,85 @@ public class App {
         }else{
         for (int CZD_IDX = 0; CZD_IDX < (int) 10/simScale; CZD_IDX++) {
             for (int CSI_IDX = 0; CSI_IDX < (int) 10/simScale; CSI_IDX++){
-                for (int INIT_INFECTED_IDX = 0; INIT_INFECTED_IDX < (int) 10/simScale; INIT_INFECTED_IDX++){
                     double czd = SpreadConstants.CZD+SpreadConstants.CZD_INCREMENT*CZD_IDX*simScale;
                     double csi = SpreadConstants.CSI+SpreadConstants.CSI_INCREMENT*CSI_IDX*simScale;
-                    double initInfected = MapConstants.INIT_INFECTED+MapConstants.INIT_INFECTED_INCREMENT*INIT_INFECTED_IDX*simScale;
                     int tNum = ++trialNum;
                     if (tNum <= -1){
                         continue;
                     }
-                    resulFutures.add(executor.submit(() -> simulate(czd, csi, initInfected,tNum)));
-                    // boolean simActive = true;
-                    // GeneralConstants.RNG = new Random(0);
-                    // worldMap = new WorldMap(MapConstants.MAP_WIDTH, MapConstants.MAP_HEIGHT);
-
-                    // while (simActive){
-                    //     for (int i = 0; i < 10; i++){
-                    //         worldMap.periodicUpdate();
-                    //     }
-                    //     double totalHumans = 0;
-                    //     double totalZombies = 0;
-                    //     double totalInfected = 0;
-
-                    //     for (int x = 0; x < worldMap.getTiles().length; x++) {
-                    //         for (int y = 0; y < worldMap.getTiles()[x].length; y++) {
-                    //             Tile tile = worldMap.getTiles()[x][y];
-                    //             totalHumans += tile.getHumans();
-                    //             totalZombies += tile.getZombies();
-                    //             totalInfected += tile.getTotalInfected();
-                    //         }
-                    //     }
-                    //     if (totalHumans - totalInfected <= 1){
-                    //         System.out.println("Zombies win!");
-                    //         App.logResults(1, SpreadConstants.CZD, SpreadConstants.CSI, MapConstants.INIT_INFECTED);
-                    //         simActive = false;
-                    //     } else if (totalZombies+totalInfected <= 1){
-                    //         System.out.println("Humans win!");
-                    //         App.logResults(0, SpreadConstants.CZD, SpreadConstants.CSI, MapConstants.INIT_INFECTED);
-                    //         simActive = false;
-                    //     }
-                    // }
-
+                    resulFutures.add(executor.submit(() -> simulate(czd, csi,tNum)));
                 }
             }
         }
         System.out.println("All simulations started, waiting for results...");
         executor.shutdown();
         System.out.println("executor shutdown, waiting for termination...");
-        System.out.println("terminated:" + executor.awaitTermination(300, java.util.concurrent.TimeUnit.MINUTES));
+        System.out.println("terminated:" + executor.awaitTermination(30000, java.util.concurrent.TimeUnit.MINUTES));
         for (Future<String> future : resulFutures){
             logResults(future.get());
         }
         System.out.println(resultString);
     }
-    }
 
     public static void periodic(){
             worldMap.periodicUpdate();
     }
-    public static String simulate(double CZD, double CSI, double INIT_INFECTED, int tNum){
-        System.out.println("Starting simulation"+tNum+" with CZD="+CZD+", CSI="+CSI+", INIT_INFECTED="+INIT_INFECTED);
-        try{
-        boolean simActive = true;
-        Random rng = new Random(0);
-        worldMap = new WorldMap(MapConstants.MAP_WIDTH, MapConstants.MAP_HEIGHT, rng, CZD, CSI, INIT_INFECTED);
+    public static String simulate(double CZD, double CSI, int tNum){
+        for (int INIT_INFECTED_IDX = 0; INIT_INFECTED_IDX < (int) 20/simScale; INIT_INFECTED_IDX++){
+                    double INIT_INFECTED = MapConstants.INIT_INFECTED+MapConstants.INIT_INFECTED_INCREMENT*INIT_INFECTED_IDX*simScale;
+                    System.out.println("Starting simulation"+tNum+" with CZD="+CZD+", CSI="+CSI+", INIT_INFECTED="+INIT_INFECTED);
+                        try{
+                        boolean simActive = true;
+                        Random rng = new Random(0);
+                        worldMap = new WorldMap(MapConstants.MAP_WIDTH, MapConstants.MAP_HEIGHT, rng, CZD, CSI, INIT_INFECTED);
 
-        while (simActive){
-            // for (int i = 0; i < 10; i++){
-                worldMap.periodicUpdate();
-            // }
-            double totalHumans = 0;
-            double totalZombies = 0;
-            double totalInfected = 0;
+                        while (simActive){
+                            // for (int i = 0; i < 10; i++){
+                                worldMap.periodicUpdate();
+                            // }
+                            double totalHumans = 0;
+                            double totalZombies = 0;
+                            double totalInfected = 0;
 
-            for (int x = 0; x < worldMap.getTiles().length; x++) {
-                for (int y = 0; y < worldMap.getTiles()[x].length; y++) {
-                    Tile tile = worldMap.getTiles()[x][y];
-                    totalHumans += tile.getHumans();
-                    totalZombies += tile.getZombies();
-                    totalInfected += tile.getTotalInfected();
+                            for (int x = 0; x < worldMap.getTiles().length; x++) {
+                                for (int y = 0; y < worldMap.getTiles()[x].length; y++) {
+                                    Tile tile = worldMap.getTiles()[x][y];
+                                    totalHumans += tile.getHumans();
+                                    totalZombies += tile.getZombies();
+                                    totalInfected += tile.getTotalInfected();
+                                }
+                            }
+                            if (totalZombies > 20000000){
+                                System.out.println("Aborting simulation "+tNum+" due to overpopulation of zombies");
+                                return "\n"+tNum+","+2+","+CZD+","+CSI+","+INIT_INFECTED+",";
+                            }
+                            // System.out.println("Simulation "+tNum+" update: Humans="+(int)totalHumans+", Zombies="+(int)totalZombies+", Infected="+(int)totalInfected);
+                            // System.out.println("Simulation "+tNum+" update: CZD="+CZD+", CSI="+CSI+", Infected="+INIT_INFECTED);
+                            if (totalHumans - totalInfected <= 1){
+                                System.out.println("Zombies win! in simulation "+tNum);
+                                // App.logResults(1, CZD, CSI,INIT_INFECTED,tNum);
+                                return "\n"+tNum+","+1+","+CZD+","+CSI+","+INIT_INFECTED+",";
+                                // simActive = false;
+                            } else if (totalZombies+totalInfected <= 1){
+                                System.out.println("Humans win! in simulation "+tNum);
+                                // App.logResults(0, CZD, CSI, INIT_INFECTED,tNum);
+                                simActive = false;
+                                // simActive = false;
+                            }
+                        }
+                        }catch (Exception e){
+                            e.printStackTrace();
+                        }
                 }
-            }
-            if (totalZombies > 20000000){
-                System.out.println("Aborting simulation "+tNum+" due to overpopulation of zombies");
-                return "\n"+tNum+","+2+","+CZD+","+CSI+","+INIT_INFECTED+",";
-            }
-            // System.out.println("Simulation "+tNum+" update: Humans="+(int)totalHumans+", Zombies="+(int)totalZombies+", Infected="+(int)totalInfected);
-            // System.out.println("Simulation "+tNum+" update: CZD="+CZD+", CSI="+CSI+", Infected="+INIT_INFECTED);
-            if (totalHumans - totalInfected <= 1){
-                System.out.println("Zombies win! in simulation "+tNum);
-                // App.logResults(1, CZD, CSI,INIT_INFECTED,tNum);
-                return "\n"+tNum+","+1+","+CZD+","+CSI+","+INIT_INFECTED+",";
-                // simActive = false;
-            } else if (totalZombies+totalInfected <= 1){
-                System.out.println("Humans win! in simulation "+tNum);
-                // App.logResults(0, CZD, CSI, INIT_INFECTED,tNum);
-                return "\n"+tNum+","+0+","+CZD+","+CSI+","+INIT_INFECTED+",";
-                // simActive = false;
-            }
-        }
-        }catch (Exception e){
-            e.printStackTrace();
-        }
-        return "Something went wrong with simulation "+tNum;
+    return "\n"+tNum+"Aborted, no win found";
+        
     }
 
     public static void logResults(String result){
         resultString += result;
         Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
         clipboard.setContents(new java.awt.datatransfer.StringSelection(resultString), null);
-        // System.out.println(resultString);
+        System.out.println(resultString);
         // try {
         //     PrintWriter pWriter = new PrintWriter("results.csv");
         //     pWriter.write(resultString);
